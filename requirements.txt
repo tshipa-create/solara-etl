@@ -1,0 +1,4 @@
+psycopg2-binary
+pandas
+snowflake-connector-python[pandas]
+python-dotenv

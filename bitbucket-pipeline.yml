@@ -1,0 +1,36 @@
+image: python:3.13
+
+pipelines:
+  default:
+    - step:
+        name: Deploy ETL via SSM
+        caches:
+          - pip
+        script:
+          # Install AWS CLI v2 if not already available
+          - apt-get update && apt-get install -y unzip curl jq
+          - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          - unzip awscliv2.zip
+          - ./aws/install
+          - aws --version
+
+          # Set AWS region (adjust as needed)
+          - export AWS_REGION=af-south-1
+
+          # Run ETL and set cron via SSM
+          - |
+            aws ssm send-command \
+              --targets "Key=InstanceIds,Values=i-0123456789abcdef0" \
+              --document-name "AWS-RunShellScript" \
+              --comment "Deploy and run ETL, configure cron" \
+              --region $AWS_REGION \
+              --parameters 'commands=[
+                "cd /home/ec2-user/etl_project",
+                "python3.13 -m venv venv || echo venv exists",
+                "source venv/bin/activate",
+                "pip install --upgrade pip",
+                "pip install -r requirements.txt",
+                "python main.py",
+                "(crontab -l 2>/dev/null; echo \"0 6,12 * * * cd /home/ec2-user/etl_project && /home/ec2-user/etl_project/venv/bin/python main.py >> /home/ec2-user/etl_project/etl.log 2>&1\") | crontab -"
+              ]' \
+              --output json

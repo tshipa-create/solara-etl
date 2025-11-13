@@ -3,60 +3,58 @@ image: python:3.13
 pipelines:
   default:
     - step:
-        name: Deploy Solara ETL via SSH & SSM
+        name: Deploy Solara ETL via SSH
         caches:
           - pip
         script:
+          # -------------------------------
           # Install dependencies
-          - apt-get update && apt-get install -y unzip curl jq openssh-client rsync
-          - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          - unzip awscliv2.zip
-          - ./aws/install
-          - aws --version
+          # -------------------------------
+          - apt-get update && apt-get install -y openssh-client rsync awscli
 
-          # Set AWS Region
-          - export AWS_REGION=af-south-1
-
-          # Fetch SSH key from SSM
+          # -------------------------------
+          # Prepare SSH key from SSM
+          # -------------------------------
           - mkdir -p ~/.ssh
-          - aws ssm get-parameter \
+          - |
+            aws ssm get-parameter \
               --name "/swordfish_etl/SSH_KEY_FILE" \
               --with-decryption \
               --query "Parameter.Value" \
               --output text > ~/.ssh/swordfish_key
           - chmod 600 ~/.ssh/swordfish_key
+          - ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
 
-          # SSH info
-          - export EC2_USER=ec2-user
-          - export EC2_HOST=16.28.25.47
+          # -------------------------------
+          # Deploy code via rsync
+          # -------------------------------
+          - rsync -avz --delete ./ $EC2_USER@$EC2_HOST:/home/ec2-user/etl_project/
 
-          # Rsync code to EC2
-          - rsync -avz --delete ./ $EC2_USER@$EC2_HOST:/home/ec2-user/etl_project/ -e "ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no"
-
-          # Run ETL commands on EC2
+          # -------------------------------
+          # Run ETL on EC2
+          # -------------------------------
           - |
-            ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'ENDSSH'
-            cd /home/ec2-user/etl_project
+            ssh -i ~/.ssh/swordfish_key $EC2_USER@$EC2_HOST bash -c "'
+              cd /home/ec2-user/etl_project
 
-            # Create virtual environment
-            python3.13 -m venv venv || echo "venv exists"
-            source venv/bin/activate
+              # Create venv if it does not exist
+              python3.13 -m venv venv || echo \"venv exists\"
+              source venv/bin/activate
 
-            # Install dependencies
-            pip install --upgrade pip
-            pip install -r requirements.txt
+              # Upgrade pip and install requirements
+              pip install --upgrade pip
+              pip install -r requirements.txt
 
-            # Create .env file
-            echo "DB_HOST=solara.crqioqgga31u.af-south-1.rds.amazonaws.com" > .env
-            echo "DB_PORT=5432" >> .env
-            echo "DB_NAME=solara" >> .env
-            echo "DB_USER=tableau" >> .env
-            echo "DB_PASSWORD=$DB_PASSWORD" >> .env
+              # Create .env file (hardcoded DB values + password from Bitbucket variable)
+              echo \"DB_HOST=solara.crqioqgga31u.af-south-1.rds.amazonaws.com\" > .env
+              echo \"DB_PORT=5432\" >> .env
+              echo \"DB_NAME=solara\" >> .env
+              echo \"DB_USER=tableau\" >> .env
+              echo \"DB_PASSWORD=$DB_PASSWORD\" >> .env
 
-            # Run ETL
-            python main.py
+              # Run ETL
+              python main.py
 
-            # Setup cron for 6 AM and 12 PM
-            (crontab -l 2>/dev/null; echo "0 6,12 * * * cd /home/ec2-user/etl_project && /home/ec2-user/etl_project/venv/bin/python main.py >> /home/ec2-user/etl_project/etl.log 2>&1") | crontab -
-
-            ENDSSH
+              # Set cron for 6 AM and 12 PM
+              (crontab -l 2>/dev/null; echo \"0 6,12 * * * cd /home/ec2-user/etl_project && /home/ec2-user/etl_project/venv/bin/python main.py >> /home/ec2-user/etl_project/etl.log 2>&1\") | crontab -
+            '"

@@ -3,42 +3,41 @@ image: python:3.13
 pipelines:
   default:
     - step:
-        name: Deploy ETL via SSH
+        name: Deploy Solara ETL via SSH
         caches:
           - pip
         script:
+          # Install SSH and rsync
           - apt-get update && apt-get install -y openssh-client rsync
 
-          # Setup SSH key
+          # Create SSH directory and fetch key from SSM
           - mkdir -p ~/.ssh
-          - echo "$EC2_KEY" > ~/.ssh/id_rsa
-          - chmod 600 ~/.ssh/id_rsa
-          - ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
+          - aws ssm get-parameter \
+              --name "/swordfish_etl/SSH_KEY_FILE" \
+              --with-decryption \
+              --query "Parameter.Value" \
+              --output text > ~/.ssh/swordfish_key
+          - chmod 600 ~/.ssh/swordfish_key
+          - ssh-keyscan -H 16.28.25.47 >> ~/.ssh/known_hosts
 
-          # Copy ETL project to EC2
-          - rsync -avz --delete ./ $EC2_USER@$EC2_HOST:/home/ec2-user/etl_project/
+          # Sync repo to EC2
+          - rsync -avz --delete ./ ec2-user@16.28.25.47:/home/ec2-user/etl_project/ -e "ssh -i ~/.ssh/swordfish_key"
 
           # Run commands on EC2
-          - ssh $EC2_USER@$EC2_HOST << 'EOF'
-            cd /home/ec2-user/etl_project
-
-            python3.13 -m venv venv || echo "venv exists"
-            source venv/bin/activate
-
-           
-            pip install --upgrade pip
-            pip install -r requirements.txt
-
-           
-            echo "DB_HOST=solara.crqioqgga31u.af-south-1.rds.amazonaws.com" > .env
-            echo "DB_PORT=5432" >> .env
-            echo "DB_NAME=solara" >> .env
-            echo "DB_USER=tableau" >> .env
-            echo "DB_PASSWORD=$DB_PASSWORD" >> .env
-
-           
-            python main.py
-
-            
-            (crontab -l 2>/dev/null; echo "0 6,12 * * * cd /home/ec2-user/etl_project && /home/ec2-user/etl_project/venv/bin/python main.py >> /home/ec2-user/etl_project/etl.log 2>&1") | crontab -
-            EOF
+          - ssh -i ~/.ssh/swordfish_key ec2-user@16.28.25.47 bash -c "
+              cd /home/ec2-user/etl_project
+              python3.13 -m venv venv || echo 'venv exists'
+              source venv/bin/activate
+              pip install --upgrade pip
+              pip install -r requirements.txt
+              
+              echo 'DB_HOST=solara.crqioqgga31u.af-south-1.rds.amazonaws.com' > .env
+              echo 'DB_PORT=5432' >> .env
+              echo 'DB_NAME=solara' >> .env
+              echo 'DB_USER=tableau' >> .env
+              echo 'DB_PASSWORD=$DB_PASSWORD' >> .env
+              
+              python main.py
+              
+              (crontab -l 2>/dev/null; echo '0 6,12 * * * cd /home/ec2-user/etl_project && /home/ec2-user/etl_project/venv/bin/python main.py >> /home/ec2-user/etl_project/etl.log 2>&1') | crontab -
+            "

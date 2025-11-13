@@ -3,58 +3,48 @@ image: python:3.13
 pipelines:
   default:
     - step:
-        name: Deploy Solara ETL via SSH
+        name: Deploy ETL via SSH
         caches:
           - pip
         script:
-          # -------------------------------
-          # Install dependencies
-          # -------------------------------
-          - apt-get update && apt-get install -y openssh-client rsync awscli
+          # Install required tools
+          - apt-get update && apt-get install -y openssh-client rsync jq curl
 
-          # -------------------------------
-          # Prepare SSH key from SSM
-          # -------------------------------
+          # Create .ssh folder
           - mkdir -p ~/.ssh
+
+          # Fetch SSH private key from SSM and write to ~/.ssh/swordfish_key
           - |
+            echo "Fetching SSH key from SSM..."
             aws ssm get-parameter \
               --name "/swordfish_etl/SSH_KEY_FILE" \
               --with-decryption \
               --query "Parameter.Value" \
               --output text > ~/.ssh/swordfish_key
           - chmod 600 ~/.ssh/swordfish_key
+
+          # Add EC2 host to known hosts
           - ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
 
-          # -------------------------------
-          # Deploy code via rsync
-          # -------------------------------
-          - rsync -avz --delete ./ $EC2_USER@$EC2_HOST:/home/ec2-user/etl_project/
+          # Deploy files via rsync over SSH
+          - rsync -avz -e "ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no" \
+            --delete ./ $EC2_USER@$EC2_HOST:/home/ec2-user/etl_project/
 
-          # -------------------------------
-          # Run ETL on EC2
-          # -------------------------------
+          # Optionally, run remote commands on EC2 (setup venv, .env, run ETL)
           - |
-            ssh -i ~/.ssh/swordfish_key $EC2_USER@$EC2_HOST bash -c "'
+            ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
               cd /home/ec2-user/etl_project
-
-              # Create venv if it does not exist
-              python3.13 -m venv venv || echo \"venv exists\"
+              python3.13 -m venv venv || echo "venv exists"
               source venv/bin/activate
-
-              # Upgrade pip and install requirements
               pip install --upgrade pip
               pip install -r requirements.txt
-
-              # Create .env file (hardcoded DB values + password from Bitbucket variable)
-              echo \"DB_HOST=solara.crqioqgga31u.af-south-1.rds.amazonaws.com\" > .env
-              echo \"DB_PORT=5432\" >> .env
-              echo \"DB_NAME=solara\" >> .env
-              echo \"DB_USER=tableau\" >> .env
-              echo \"DB_PASSWORD=$DB_PASSWORD\" >> .env
-
-              # Run ETL
+              # Create .env file (DB_PASSWORD from Bitbucket repo variable)
+              echo "DB_HOST=solara.crqioqgga31u.af-south-1.rds.amazonaws.com" > .env
+              echo "DB_PORT=5432" >> .env
+              echo "DB_NAME=solara" >> .env
+              echo "DB_USER=tableau" >> .env
+              echo "DB_PASSWORD=$DB_PASSWORD" >> .env
               python main.py
-
-              # Set cron for 6 AM and 12 PM
-              (crontab -l 2>/dev/null; echo \"0 6,12 * * * cd /home/ec2-user/etl_project && /home/ec2-user/etl_project/venv/bin/python main.py >> /home/ec2-user/etl_project/etl.log 2>&1\") | crontab -
-            '"
+              # Setup cron
+              (crontab -l 2>/dev/null; echo "0 6,12 * * * cd /home/ec2-user/etl_project && /home/ec2-user/etl_project/venv/bin/python main.py >> /home/ec2-user/etl_project/etl.log 2>&1") | crontab -
+            EOF

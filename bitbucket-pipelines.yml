@@ -7,7 +7,7 @@ pipelines:
         caches:
           - pip
         script:
-          # Install AWS CLI v2 and dependencies
+          # Install dependencies
           - apt-get update && apt-get install -y unzip curl jq openssh-client rsync
           - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           - unzip awscliv2.zip
@@ -33,29 +33,30 @@ pipelines:
           # Rsync code to EC2
           - rsync -avz --delete ./ $EC2_USER@$EC2_HOST:/home/ec2-user/etl_project/ -e "ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no"
 
-          # Run commands on EC2
-          - ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST |
-            bash -c "'
-              cd /home/ec2-user/etl_project
+          # Run ETL commands on EC2
+          - |
+            ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'ENDSSH'
+            cd /home/ec2-user/etl_project
 
-              # Create venv if it doesn't exist
-              python3.13 -m venv venv || echo \"venv exists\"
-              source venv/bin/activate
+            # Create virtual environment
+            python3.13 -m venv venv || echo "venv exists"
+            source venv/bin/activate
 
-              # Install dependencies
-              pip install --upgrade pip
-              pip install -r requirements.txt
+            # Install dependencies
+            pip install --upgrade pip
+            pip install -r requirements.txt
 
-              # Create .env file
-              echo \"DB_HOST=solara.crqioqgga31u.af-south-1.rds.amazonaws.com\" > .env
-              echo \"DB_PORT=5432\" >> .env
-              echo \"DB_NAME=solara\" >> .env
-              echo \"DB_USER=tableau\" >> .env
-              echo \"DB_PASSWORD=$DB_PASSWORD\" >> .env
+            # Create .env file
+            echo "DB_HOST=solara.crqioqgga31u.af-south-1.rds.amazonaws.com" > .env
+            echo "DB_PORT=5432" >> .env
+            echo "DB_NAME=solara" >> .env
+            echo "DB_USER=tableau" >> .env
+            echo "DB_PASSWORD=$DB_PASSWORD" >> .env
 
-              # Run ETL
-              python main.py
+            # Run ETL
+            python main.py
 
-              # Setup cron for 6 AM and 12 PM
-              (crontab -l 2>/dev/null; echo \"0 6,12 * * * cd /home/ec2-user/etl_project && /home/ec2-user/etl_project/venv/bin/python main.py >> /home/ec2-user/etl_project/etl.log 2>&1\") | crontab -
-            '"
+            # Setup cron for 6 AM and 12 PM
+            (crontab -l 2>/dev/null; echo "0 6,12 * * * cd /home/ec2-user/etl_project && /home/ec2-user/etl_project/venv/bin/python main.py >> /home/ec2-user/etl_project/etl.log 2>&1") | crontab -
+
+            ENDSSH

@@ -7,44 +7,43 @@ pipelines:
         caches:
           - pip
         script:
-          # Install required tools
-          - apt-get update && apt-get install -y openssh-client rsync jq curl
+          # Install AWS CLI and other tools
+          - apt-get update && apt-get install -y unzip curl jq openssh-client rsync
+          - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          - unzip awscliv2.zip
+          - ./aws/install
+          - aws --version
 
           # Create .ssh folder
           - mkdir -p ~/.ssh
 
-          # Fetch SSH private key from SSM and write to ~/.ssh/swordfish_key
-          - |
-            echo "Fetching SSH key from SSM..."
-            aws ssm get-parameter \
+          # Fetch SSH key from SSM and write to temporary file
+          - aws ssm get-parameter \
               --name "/swordfish_etl/SSH_KEY_FILE" \
               --with-decryption \
               --query "Parameter.Value" \
               --output text > ~/.ssh/swordfish_key
           - chmod 600 ~/.ssh/swordfish_key
 
-          # Add EC2 host to known hosts
+          # Add EC2 host to known_hosts
           - ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
 
-          # Deploy files via rsync over SSH
+          # Deploy files via rsync
           - rsync -avz -e "ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no" \
             --delete ./ $EC2_USER@$EC2_HOST:/home/ec2-user/etl_project/
 
-          # Optionally, run remote commands on EC2 (setup venv, .env, run ETL)
-          - |
-            ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
+          # Run remote setup
+          - ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
               cd /home/ec2-user/etl_project
               python3.13 -m venv venv || echo "venv exists"
               source venv/bin/activate
               pip install --upgrade pip
               pip install -r requirements.txt
-              # Create .env file (DB_PASSWORD from Bitbucket repo variable)
               echo "DB_HOST=solara.crqioqgga31u.af-south-1.rds.amazonaws.com" > .env
               echo "DB_PORT=5432" >> .env
               echo "DB_NAME=solara" >> .env
               echo "DB_USER=tableau" >> .env
               echo "DB_PASSWORD=$DB_PASSWORD" >> .env
               python main.py
-              # Setup cron
               (crontab -l 2>/dev/null; echo "0 6,12 * * * cd /home/ec2-user/etl_project && /home/ec2-user/etl_project/venv/bin/python main.py >> /home/ec2-user/etl_project/etl.log 2>&1") | crontab -
             EOF

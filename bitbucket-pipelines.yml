@@ -1,24 +1,68 @@
-#  Template python-build
-
-#  This template allows you to validate your python code.
-#  The workflow allows running tests and code linting on the default branch.
-
-image: python:3.8
+image: python:3.13
 
 pipelines:
   default:
-    - parallel:
-      - step:
-          name: Test
-          caches:
-            - pip
-          script:
-            - if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-            - pip install pytest
-            - pytest -v tests/* --junitxml=test-reports/report.xml
-      - step:
-          name: Lint code
-          script:
-            # Enforce style consistency across Python projects https://flake8.pycqa.org
-            - pip install flake8
-            - flake8 . --extend-exclude=dist,build --show-source --statistics
+    - step:
+        name: Deploy Solara ETL via SSH & SSM
+        caches:
+          - pip
+        script:
+          # -------------------------------
+          # Install AWS CLI v2 and dependencies
+          # -------------------------------
+          - apt-get update && apt-get install -y unzip curl jq openssh-client rsync
+          - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          - unzip awscliv2.zip
+          - ./aws/install
+          - aws --version
+
+          # -------------------------------
+          # Set AWS Region
+          # -------------------------------
+          - export AWS_REGION=af-south-1
+
+          # -------------------------------
+          # Fetch SSH key from SSM
+          # -------------------------------
+          - mkdir -p ~/.ssh
+          - aws ssm get-parameter \
+              --name "/swordfish_etl/SSH_KEY_FILE" \
+              --with-decryption \
+              --query "Parameter.Value" \
+              --output text > ~/.ssh/swordfish_key
+          - chmod 600 ~/.ssh/swordfish_key
+
+          # -------------------------------
+          # SSH to EC2 and deploy
+          # -------------------------------
+          - export EC2_USER=ec2-user
+          - export EC2_HOST=16.28.25.47
+          - rsync -avz --delete ./ $EC2_USER@$EC2_HOST:/home/ec2-user/etl_project/ -e "ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no"
+
+          # -------------------------------
+          # Run commands on EC2
+          # -------------------------------
+          - ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
+            cd /home/ec2-user/etl_project
+
+            # Create venv if it doesn't exist
+            python3.13 -m venv venv || echo "venv exists"
+            source venv/bin/activate
+
+            # Install dependencies
+            pip install --upgrade pip
+            pip install -r requirements.txt
+
+            # Create .env file
+            echo "DB_HOST=solara.crqioqgga31u.af-south-1.rds.amazonaws.com" > .env
+            echo "DB_PORT=5432" >> .env
+            echo "DB_NAME=solara" >> .env
+            echo "DB_USER=tableau" >> .env
+            echo "DB_PASSWORD=$DB_PASSWORD" >> .env
+
+            # Run ETL
+            python main.py
+
+            # Setup cron for 6 AM and 12 PM
+            (crontab -l 2>/dev/null; echo "0 6,12 * * * cd /home/ec2-user/etl_project && /home/ec2-user/etl_project/venv/bin/python main.py >> /home/ec2-user/etl_project/etl.log 2>&1") | crontab -
+            EOF

@@ -150,22 +150,40 @@ def get_all_tables(pg_conn):
 def extract_table(pg_conn, table_name):
     query = f'SELECT * FROM public."{table_name}"'
     df = pd.read_sql(query, pg_conn)
+
     df["load_at_ts_utc"] = pd.Timestamp.utcnow()
+
+    # Handle JSON columns specifically to prevent type inference issues
+    for col in df.columns:
+        if df[col].dtype == 'object':  # Potential JSON columns
+            # Convert to string but handle None values
+            df[col] = df[col].astype(str)
+            df[col] = df[col].replace({'None': None, 'nan': None, 'NaT': None})
+
     return df
 
 # --------------------------------------------------
 # Load data to Snowflake
 # --------------------------------------------------
 def load_to_snowflake(sf_conn, df, table_name):
-    success, nchunks, nrows, _ = write_pandas(
-        conn=sf_conn,
-        df=df,
-        table_name=table_name.upper(),
-        auto_create_table=True,
-        overwrite=True,
-        use_logical_type=True
-    )
-    return success, nrows
+    try:
+        # Drop table if exists to ensure clean schema recreation
+        cursor = sf_conn.cursor()
+        cursor.execute(f"DROP TABLE IF EXISTS {table_name.upper()}")
+        cursor.close()
+
+        # Load data using write_pandas with auto_create_table
+        success, nchunks, nrows, _ = write_pandas(
+            conn=sf_conn,
+            df=df,
+            table_name=table_name.upper(),
+            auto_create_table=True,
+            overwrite=True
+        )
+        return success, nrows
+    except Exception as e:
+        logger.error(f"Error loading {table_name}: {e}")
+        return False, 0
 
 # --------------------------------------------------
 # Main ETL Logic

@@ -22,7 +22,7 @@ pipelines:
           - ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
 
           # Deploy code to EC2
-          - rsync -avz --delete ./ $EC2_USER@$EC2_HOST:/home/ec2-user/etl_project/
+          - rsync -avz -e "ssh -i ~/.ssh/swordfish_key" --delete ./ $EC2_USER@$EC2_HOST:/home/ec2-user/etl_project/
 
           # Run commands on EC2
           - ssh -i ~/.ssh/swordfish_key $EC2_USER@$EC2_HOST bash -c "

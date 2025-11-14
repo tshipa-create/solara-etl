@@ -11,6 +11,11 @@ from snowflake.connector.pandas_tools import write_pandas
 from dotenv import load_dotenv
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
+import certifi
+
+# Set SSL certificate bundle for requests/boto3
+os.environ['REQUESTS_CA_BUNDLE'] = certifi.where()
+os.environ['AWS_CA_BUNDLE'] = certifi.where()
 
 # --------------------------------------------------
 # Setup Logging
@@ -129,6 +134,7 @@ def get_snowflake_connection():
         warehouse=creds["SNOWFLAKE_WAREHOUSE"],
         database=creds["SNOWFLAKE_DATABASE"],
         schema='ODS_SOLARA',
+        insecure_mode=True,  # Bypass SSL certificate validation
     )
 
 # --------------------------------------------------

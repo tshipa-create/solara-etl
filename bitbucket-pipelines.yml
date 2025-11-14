@@ -36,6 +36,6 @@ pipelines:
               echo 'DB_NAME=solara' >> .env
               echo 'DB_USER=tableau' >> .env
               echo 'DB_PASSWORD=$DB_PASSWORD' >> .env
-              python main.py
+              python main.py ;
               (crontab -l 2>/dev/null; echo '0 6,12 * * * cd /home/ec2-user/etl_project && /home/ec2-user/etl_project/venv/bin/python main.py >> /home/ec2-user/etl_project/etl.log 2>&1') | crontab -
             "

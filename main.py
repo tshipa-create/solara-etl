@@ -12,10 +12,12 @@ from dotenv import load_dotenv
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 import certifi
+from datetime import datetime
 
 # Set SSL certificate bundle for requests/boto3
 os.environ['REQUESTS_CA_BUNDLE'] = certifi.where()
 os.environ['AWS_CA_BUNDLE'] = certifi.where()
+os.environ['AWS_SSL_VERIFY'] = 'false'  # Disable SSL verification for S3 uploads
 
 # --------------------------------------------------
 # Setup Logging
@@ -35,7 +37,7 @@ console_handler.setFormatter(console_formatter)
 
 # Daily file handler
 file_handler = logging.handlers.TimedRotatingFileHandler(
-    'logs/solar_to_snowflake.log',
+    'logs/'+datetime.now().strftime('%Y-%m-%d')+'.log',
     when='midnight',
     interval=1,
     backupCount=30  # Keep 30 days of logs

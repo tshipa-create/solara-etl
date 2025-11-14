@@ -9,7 +9,8 @@ pipelines:
         script:
           # Install dependencies
           - apt-get update && apt-get install -y unzip curl jq openssh-client rsync
-          
+          - pip install awscli
+
           # Configure SSH key from SSM
           - mkdir -p ~/.ssh
           - echo "Fetching SSH key from SSM..."

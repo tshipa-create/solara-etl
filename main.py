@@ -150,6 +150,13 @@ def get_all_tables(pg_conn):
 def extract_table(pg_conn, table_name):
     query = f'SELECT * FROM public."{table_name}"'
     df = pd.read_sql(query, pg_conn)
+
+    # Clean up specific columns known to have issues
+    if table_name == 'p42_applicationlead' and 'raw_lead_data' in df.columns:
+        # This column has empty strings that cause conversion errors to double
+        # Replace empty strings with None, which becomes NaN -> NULL
+        df['raw_lead_data'] = df['raw_lead_data'].replace('', None)
+
     df["load_at_ts_utc"] = pd.Timestamp.utcnow()
     return df
 
@@ -163,8 +170,7 @@ def load_to_snowflake(sf_conn, df, table_name):
         df=df,
         table_name=table_name.upper(),
         auto_create_table=True,
-        overwrite=True,
-        use_logical_type=True
+        overwrite=True
     )
     return success, nrows
 

@@ -18,7 +18,12 @@ pipelines:
           # Configure SSH key from SSM
           - mkdir -p ~/.ssh
           - echo "Fetching SSH key from SSM..."
-          - aws ssm get-parameter --name "/swordfish_etl/SSH_KEY" --with-decryption --query "Parameter.Value" --output text > ~/.ssh/swordfish_key
+          - aws ssm get-parameter \
+            --name "/swordfish_etl/SSH_KEY" \
+            --with-decryption \
+            --query "Parameter.Value" \
+            --output text \
+            --region af-south-1 > ~/.ssh/swordfish_key
           - chmod 600 ~/.ssh/swordfish_key
 
           # Create .env file securely

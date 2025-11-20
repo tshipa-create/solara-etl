@@ -7,43 +7,34 @@ pipelines:
         caches:
           - pip
         script:
-          # Install system dependencies
           - apt-get update && apt-get install -y unzip curl jq openssh-client rsync
 
-          # Configure SSH key
           - mkdir -p ~/.ssh
           - echo "Fetching SSH key from SSM..."
           - aws ssm get-parameter --name "/swordfish_etl/SSH_KEY" --with-decryption --query "Parameter.Value" --output text > ~/.ssh/swordfish_key
           - chmod 600 ~/.ssh/swordfish_key
 
-          # ---------------------------------------------------------------
-          # Create .env locally in the pipeline (NO heredoc → no YAML issues)
-          # ---------------------------------------------------------------
+          # Create .env file locally (safe YAML)
           - echo "DB_HOST=solara.crqioqgga31u.af-south-1.rds.amazonaws.com" > .env
           - echo "DB_PORT=5432" >> .env
           - echo "DB_NAME=solara" >> .env
           - echo "DB_USER=tableau" >> .env
           - echo "DB_PASSWORD=${DB_PASSWORD}" >> .env
 
-          # Sync project + .env file to EC2
+          # Upload project + .env
           - rsync -avz -e "ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no" ./ ec2-user@${EC2_HOST}:/home/ec2-user/etl_project
 
-          # ---------------------------------------------------------------
-          # Connect to EC2 and deploy
-          # ---------------------------------------------------------------
-          - ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no ec2-user@${EC2_HOST} << 'EOF'
+          # SSH block MUST be aligned like this
+          - |
+            ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no ec2-user@${EC2_HOST} << 'EOF'
               cd /home/ec2-user/etl_project
 
-              # Setup virtual environment
               python3 -m venv venv
               source venv/bin/activate
 
-              # Install Python dependencies
               pip install --no-cache-dir -r requirements.txt
 
-              # Run ETL once after deployment
               python main.py
 
-              # Configure cron job for 6AM and 12PM daily
               (crontab -l 2>/dev/null; echo "0 6,12 * * * cd /home/ec2-user/etl_project && /home/ec2-user/etl_project/venv/bin/python main.py >> /home/ec2-user/etl_project/etl.log 2>&1") | crontab -
-          EOF
+            EOF

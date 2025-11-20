@@ -211,11 +211,15 @@ def extract_table(pg_conn, table_name):
         'p42_outgoingmessage': ['content_variables']
     }
 
-    if table_name in struct_columns_to_drop:
-        for col in struct_columns_to_drop[table_name]:
+    if table_name.lower() in struct_columns_to_drop:
+        for col in struct_columns_to_drop[table_name.lower()]:
             if col in df.columns:
                 logger.info(f"Dropping problematic struct column '{col}' from {table_name}")
                 df = df.drop(columns=[col])
+            elif col.lower() in [c.lower() for c in df.columns]:
+                actual_col = next(c for c in df.columns if c.lower() == col.lower())
+                logger.info(f"Dropping problematic struct column '{actual_col}' from {table_name} (case-insensitive match)")
+                df = df.drop(columns=[actual_col])
 
     df["load_at_ts_utc"] = pd.Timestamp.utcnow()
     return df

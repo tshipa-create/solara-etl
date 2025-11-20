@@ -7,43 +7,37 @@ pipelines:
         caches:
           - pip
         script:
-          # Install dependencies
           - apt-get update && apt-get install -y unzip curl jq openssh-client rsync
-          
-          # Configure SSH key from SSM
+
+          # Configure SSH
           - mkdir -p ~/.ssh
           - echo "Fetching SSH key from SSM..."
-          - aws ssm get-parameter --name "/swordfish_etl/SSH_KEY_FILE" --with-decryption --query "Parameter.Value" --output text > ~/.ssh/swordfish_key
+          - aws ssm get-parameter --name "/swordfish_etl/SSH_KEY" --with-decryption --query "Parameter.Value" --output text > ~/.ssh/swordfish_key
           - chmod 600 ~/.ssh/swordfish_key
-          
-          # Ensure host is known
-          - ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
-          
-          # Deploy code to EC2
-          - rsync -avz --delete ./ $EC2_USER@$EC2_HOST:/home/ec2-user/etl_project/
-          
-          # Run commands on EC2
-          - ssh -i ~/.ssh/swordfish_key $EC2_USER@$EC2_HOST << 'EOF'
+
+          # Copy project to EC2
+          - rsync -avz -e "ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no" ./ ec2-user@${EC2_HOST}:/home/ec2-user/etl_project
+
+          # Connect and deploy
+          - ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no ec2-user@${EC2_HOST} << 'EOF'
               cd /home/ec2-user/etl_project
 
-              # Create virtual environment
-              python3.13 -m venv venv || echo "venv exists"
+              python3 -m venv venv
               source venv/bin/activate
-              pip install --upgrade pip
               pip install -r requirements.txt
 
-              # Create .env file
+              # Build .env file
               cat > .env << ENV_EOF
 DB_HOST=solara.crqioqgga31u.af-south-1.rds.amazonaws.com
 DB_PORT=5432
 DB_NAME=solara
 DB_USER=tableau
-DB_PASSWORD=$DB_PASSWORD
+DB_PASSWORD=${DB_PASSWORD}
 ENV_EOF
 
               # Run ETL
               python main.py
 
-              # Configure cron
+              # Schedule cron job at 6AM + 12PM
               (crontab -l 2>/dev/null; echo "0 6,12 * * * cd /home/ec2-user/etl_project && /home/ec2-user/etl_project/venv/bin/python main.py >> /home/ec2-user/etl_project/etl.log 2>&1") | crontab -
-            EOF
+          EOF

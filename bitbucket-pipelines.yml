@@ -7,24 +7,31 @@ pipelines:
         caches:
           - pip
         script:
+          # Install system dependencies
           - apt-get update && apt-get install -y unzip curl jq openssh-client rsync
 
+          # Install AWS CLI v2
+          - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          - unzip awscliv2.zip
+          - ./aws/install
+
+          # Configure SSH key from SSM
           - mkdir -p ~/.ssh
           - echo "Fetching SSH key from SSM..."
           - aws ssm get-parameter --name "/swordfish_etl/SSH_KEY" --with-decryption --query "Parameter.Value" --output text > ~/.ssh/swordfish_key
           - chmod 600 ~/.ssh/swordfish_key
 
-          # Create .env file locally (safe YAML)
+          # Create .env file securely
           - echo "DB_HOST=solara.crqioqgga31u.af-south-1.rds.amazonaws.com" > .env
           - echo "DB_PORT=5432" >> .env
           - echo "DB_NAME=solara" >> .env
           - echo "DB_USER=tableau" >> .env
           - echo "DB_PASSWORD=${DB_PASSWORD}" >> .env
 
-          # Upload project + .env
+          # Sync project + .env to EC2
           - rsync -avz -e "ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no" ./ ec2-user@${EC2_HOST}:/home/ec2-user/etl_project
 
-          # SSH block MUST be aligned like this
+          # Deployment commands
           - |
             ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no ec2-user@${EC2_HOST} << 'EOF'
               cd /home/ec2-user/etl_project
@@ -33,7 +40,6 @@ pipelines:
               source venv/bin/activate
 
               pip install --no-cache-dir -r requirements.txt
-
               python main.py
 
               (crontab -l 2>/dev/null; echo "0 6,12 * * * cd /home/ec2-user/etl_project && /home/ec2-user/etl_project/venv/bin/python main.py >> /home/ec2-user/etl_project/etl.log 2>&1") | crontab -

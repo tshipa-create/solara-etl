@@ -122,25 +122,43 @@ def get_snowflake_connection():
         ]
     }
 
-    return connect(
-        user=creds["SNOWFLAKE_USER"],
-        account=creds["SNOWFLAKE_ACCOUNT"],
-        private_key=get_private_key(),
-        warehouse=creds["SNOWFLAKE_WAREHOUSE"],
-        database=creds["SNOWFLAKE_DATABASE"],
-        schema='ODS_SOLARA',
-        # OCSP certificate checks are failing, so we disable them.
-        # This is a workaround and may have security implications.
-        insecure_mode=True,
-        # Additional SSL/TLS bypass parameters
-        session_parameters={
-            'CLIENT_SESSION_KEEP_ALIVE': True,
-            'CLIENT_SESSION_KEEP_ALIVE_HEARTBEAT_FREQUENCY': 3600,
-            'TIMEZONE': 'UTC',
-        },
-        # Try to disable SSL verification entirely
-        ssl_disabled=True,
-    )
+    try:
+        return connect(
+            user=creds["SNOWFLAKE_USER"],
+            account=creds["SNOWFLAKE_ACCOUNT"],
+            private_key=get_private_key(),
+            warehouse=creds["SNOWFLAKE_WAREHOUSE"],
+            database=creds["SNOWFLAKE_DATABASE"],
+            schema='ODS_SOLARA',
+            # OCSP certificate checks are failing, so we disable them.
+            # This is a workaround and may have security implications.
+            insecure_mode=True,
+            # Additional SSL/TLS bypass parameters
+            session_parameters={
+                'CLIENT_SESSION_KEEP_ALIVE': True,
+                'CLIENT_SESSION_KEEP_ALIVE_HEARTBEAT_FREQUENCY': 3600,
+                'TIMEZONE': 'UTC',
+            },
+        )
+    except Exception as e:
+        logger.warning(f"Initial connection failed: {e}. Trying with additional SSL bypass...")
+        # Try with additional SSL bypass if initial connection fails
+        return connect(
+            user=creds["SNOWFLAKE_USER"],
+            account=creds["SNOWFLAKE_ACCOUNT"],
+            private_key=get_private_key(),
+            warehouse=creds["SNOWFLAKE_WAREHOUSE"],
+            database=creds["SNOWFLAKE_DATABASE"],
+            schema='ODS_SOLARA',
+            insecure_mode=True,
+            session_parameters={
+                'CLIENT_SESSION_KEEP_ALIVE': True,
+                'CLIENT_SESSION_KEEP_ALIVE_HEARTBEAT_FREQUENCY': 3600,
+                'TIMEZONE': 'UTC',
+            },
+            # Additional SSL parameters
+            ssl_disabled=True,
+        )
 
 # --------------------------------------------------
 # Get list of tables from Postgres
@@ -165,8 +183,9 @@ def extract_table(pg_conn, table_name):
     # Clean up specific columns known to have issues
     if table_name == 'p42_applicationlead' and 'raw_lead_data' in df.columns:
         # This column has empty strings that cause conversion errors to double
-        # Replace empty strings with None, which becomes NaN -> NULL
+        # Replace empty strings with None, then convert to numeric type
         df['raw_lead_data'] = df['raw_lead_data'].replace('', None)
+        df['raw_lead_data'] = pd.to_numeric(df['raw_lead_data'], errors='coerce')
 
     if table_name == 'p42_entrancescoring' and 'primary_results' in df.columns:
         # Convert string numbers to float, handle invalid values
@@ -180,20 +199,23 @@ def extract_table(pg_conn, table_name):
     # This helps prevent conversion errors
     for col in df.select_dtypes(include=['object']).columns:
         df[col] = df[col].replace('', None)
+        # Also handle other problematic string values that might cause conversion issues
+        df[col] = df[col].replace(['nan', 'NaN', 'NULL', 'null'], None)
 
     # Handle problematic struct columns that cause Parquet errors
-    struct_columns_to_fix = {
+    # These columns contain empty structs that can't be written to Parquet
+    struct_columns_to_drop = {
         'p42_applications': ['step_data'],
         'p42_contract': ['application_state'],
         'p42_creditcheck': ['bond_details'],
         'p42_outgoingmessage': ['content_variables']
     }
 
-    if table_name in struct_columns_to_fix:
-        for col in struct_columns_to_fix[table_name]:
+    if table_name in struct_columns_to_drop:
+        for col in struct_columns_to_drop[table_name]:
             if col in df.columns:
-                # Convert struct to JSON string to avoid Parquet issues
-                df[col] = df[col].apply(lambda x: str(x) if x is not None else None)
+                logger.info(f"Dropping problematic struct column '{col}' from {table_name}")
+                df = df.drop(columns=[col])
 
     df["load_at_ts_utc"] = pd.Timestamp.utcnow()
     return df
@@ -253,6 +275,7 @@ def main():
     logger.info(f"Found {len(tables)} tables in schema 'public'")
     logger.info("Starting data extraction and loading")
 
+    failed_tables = []
     for i, table in enumerate(tables, 1):
         try:
             logger.info(f"[{i}/{len(tables)}] Processing {table}...")
@@ -266,11 +289,17 @@ def main():
                 logger.info(f"{table}: Loaded {nrows} rows successfully.")
             else:
                 logger.error(f"{table}: Load failed.")
+                failed_tables.append(table)
 
         except Exception as e:
             logger.error(f"{table}: Error - {e}")
+            failed_tables.append(table)
         finally:
             time.sleep(1)
+
+    if failed_tables:
+        logger.warning(f"The following tables failed to load: {', '.join(failed_tables)}")
+        logger.info(f"Total failed tables: {len(failed_tables)} out of {len(tables)}")
 
     pg_conn.close()
     sf_conn.close()

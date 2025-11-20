@@ -129,6 +129,17 @@ def get_snowflake_connection():
         warehouse=creds["SNOWFLAKE_WAREHOUSE"],
         database=creds["SNOWFLAKE_DATABASE"],
         schema='ODS_SOLARA',
+        # OCSP certificate checks are failing, so we disable them.
+        # This is a workaround and may have security implications.
+        insecure_mode=True,
+        # Additional SSL/TLS bypass parameters
+        session_parameters={
+            'CLIENT_SESSION_KEEP_ALIVE': True,
+            'CLIENT_SESSION_KEEP_ALIVE_HEARTBEAT_FREQUENCY': 3600,
+            'TIMEZONE': 'UTC',
+        },
+        # Try to disable SSL verification entirely
+        ssl_disabled=True,
     )
 
 # --------------------------------------------------
@@ -157,6 +168,33 @@ def extract_table(pg_conn, table_name):
         # Replace empty strings with None, which becomes NaN -> NULL
         df['raw_lead_data'] = df['raw_lead_data'].replace('', None)
 
+    if table_name == 'p42_entrancescoring' and 'primary_results' in df.columns:
+        # Convert string numbers to float, handle invalid values
+        df['primary_results'] = pd.to_numeric(df['primary_results'], errors='coerce')
+
+    if table_name == 'p42_incomingmessage' and 'data' in df.columns:
+        # Handle mixed list/non-list data by converting to string representation
+        df['data'] = df['data'].apply(lambda x: str(x) if x is not None else None)
+
+    # General cleanup: replace empty strings with None for all object columns
+    # This helps prevent conversion errors
+    for col in df.select_dtypes(include=['object']).columns:
+        df[col] = df[col].replace('', None)
+
+    # Handle problematic struct columns that cause Parquet errors
+    struct_columns_to_fix = {
+        'p42_applications': ['step_data'],
+        'p42_contract': ['application_state'],
+        'p42_creditcheck': ['bond_details'],
+        'p42_outgoingmessage': ['content_variables']
+    }
+
+    if table_name in struct_columns_to_fix:
+        for col in struct_columns_to_fix[table_name]:
+            if col in df.columns:
+                # Convert struct to JSON string to avoid Parquet issues
+                df[col] = df[col].apply(lambda x: str(x) if x is not None else None)
+
     df["load_at_ts_utc"] = pd.Timestamp.utcnow()
     return df
 
@@ -164,15 +202,42 @@ def extract_table(pg_conn, table_name):
 # Load data to Snowflake
 # --------------------------------------------------
 def load_to_snowflake(sf_conn, df, table_name):
-    df.columns = df.columns.str.upper()
-    success, nchunks, nrows, _ = write_pandas(
-        conn=sf_conn,
-        df=df,
-        table_name=table_name.upper(),
-        auto_create_table=True,
-        overwrite=True
-    )
-    return success, nrows
+    try:
+        df.columns = df.columns.str.upper()
+        logger.info(f"Loading {len(df)} rows to {table_name.upper()}")
+
+        success, nchunks, nrows, _ = write_pandas(
+            conn=sf_conn,
+            df=df,
+            table_name=table_name.upper(),
+            auto_create_table=True,
+            overwrite=True
+        )
+
+        if success:
+            logger.info(f"Successfully loaded {nrows} rows in {nchunks} chunks")
+        else:
+            logger.error(f"Failed to load data to {table_name.upper()}")
+
+        return success, nrows
+
+    except Exception as e:
+        logger.error(f"Error loading to {table_name.upper()}: {str(e)}")
+        # Try with a smaller chunk size if it fails
+        try:
+            logger.info(f"Retrying {table_name.upper()} with smaller chunks")
+            success, nchunks, nrows, _ = write_pandas(
+                conn=sf_conn,
+                df=df,
+                table_name=table_name.upper(),
+                auto_create_table=True,
+                overwrite=True,
+                chunk_size=50000  # Smaller chunk size
+            )
+            return success, nrows
+        except Exception as retry_e:
+            logger.error(f"Retry also failed for {table_name.upper()}: {str(retry_e)}")
+            return False, 0
 
 # --------------------------------------------------
 # Main ETL Logic

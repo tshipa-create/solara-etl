@@ -157,7 +157,7 @@ def extract_table(pg_conn, table_name):
 # Load data to Snowflake
 # --------------------------------------------------
 def load_to_snowflake(sf_conn, df, table_name):
-    df.columns = df.columnts.str.upper()
+    df.columns = df.columns.str.upper()
     success, nchunks, nrows, _ = write_pandas(
         conn=sf_conn,
         df=df,

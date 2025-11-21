@@ -15,31 +15,26 @@ from cryptography.hazmat.backends import default_backend
 # --------------------------------------------------
 # Setup Logging
 # --------------------------------------------------
-# Create logs directory if it doesn't exist
 os.makedirs('logs', exist_ok=True)
 
-# Setup logging with console and daily file handler
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# Console handler
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.INFO)
 console_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 console_handler.setFormatter(console_formatter)
 
-# Daily file handler
 file_handler = logging.handlers.TimedRotatingFileHandler(
     'logs/solar_to_snowflake.log',
     when='midnight',
     interval=1,
-    backupCount=30  # Keep 30 days of logs
+    backupCount=30
 )
 file_handler.setLevel(logging.INFO)
 file_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 file_handler.setFormatter(file_formatter)
 
-# Add handlers to logger
 logger.addHandler(console_handler)
 logger.addHandler(file_handler)
 
@@ -130,10 +125,7 @@ def get_snowflake_connection():
             warehouse=creds["SNOWFLAKE_WAREHOUSE"],
             database=creds["SNOWFLAKE_DATABASE"],
             schema='ODS_SOLARA',
-            # OCSP certificate checks are failing, so we disable them.
-            # This is a workaround and may have security implications.
             insecure_mode=True,
-            # Additional SSL/TLS bypass parameters
             session_parameters={
                 'CLIENT_SESSION_KEEP_ALIVE': True,
                 'CLIENT_SESSION_KEEP_ALIVE_HEARTBEAT_FREQUENCY': 3600,
@@ -142,7 +134,6 @@ def get_snowflake_connection():
         )
     except Exception as e:
         logger.warning(f"Initial connection failed: {e}. Trying with additional SSL bypass...")
-        # Try with additional SSL bypass if initial connection fails
         return connect(
             user=creds["SNOWFLAKE_USER"],
             account=creds["SNOWFLAKE_ACCOUNT"],
@@ -156,7 +147,6 @@ def get_snowflake_connection():
                 'CLIENT_SESSION_KEEP_ALIVE_HEARTBEAT_FREQUENCY': 3600,
                 'TIMEZONE': 'UTC',
             },
-            # Additional SSL parameters
             ssl_disabled=True,
         )
 
@@ -174,43 +164,30 @@ def get_all_tables(pg_conn):
     return df["table_name"].tolist()
 
 # --------------------------------------------------
-# Extract data from Postgres
+# Extract data from Postgres (fixed cleanup)
 # --------------------------------------------------
 def extract_table(pg_conn, table_name):
     query = f'SELECT * FROM public."{table_name}"'
     df = pd.read_sql(query, pg_conn)
 
-    # Clean up specific columns known to have issues
-    if table_name == 'p42_applicationlead' and 'raw_lead_data' in df.columns:
-        # This column has empty strings that cause conversion errors to double
-        # Replace empty strings with None, then convert to numeric type
-        df['raw_lead_data'] = df['raw_lead_data'].replace('', None)
-        df['raw_lead_data'] = pd.to_numeric(df['raw_lead_data'], errors='coerce')
+    # Columns that should be numeric
+    numeric_cols = {
+        'p42_applicationlead': ['raw_lead_data'],
+        'p42_entrancescoring': ['primary_results', 'response_data']
+    }
+    if table_name.lower() in numeric_cols:
+        for col in numeric_cols[table_name.lower()]:
+            if col in df.columns:
+                df[col] = df[col].replace('', None)
+                df[col] = pd.to_numeric(df[col], errors='coerce')
 
-    if table_name == 'p42_entrancescoring' and 'primary_results' in df.columns:
-        # Convert string numbers to float, handle invalid values
-        df['primary_results'] = pd.to_numeric(df['primary_results'], errors='coerce')
-
-    if table_name == 'p42_incomingmessage' and 'data' in df.columns:
-        # Handle mixed list/non-list data by converting to string representation
-        df['data'] = df['data'].apply(lambda x: str(x) if x is not None else None)
-
-    # General cleanup: replace empty strings with None for all object columns
-    # This helps prevent conversion errors
-    for col in df.select_dtypes(include=['object']).columns:
-        df[col] = df[col].replace('', None)
-        # Also handle other problematic string values that might cause conversion issues
-        df[col] = df[col].replace(['nan', 'NaN', 'NULL', 'null'], None)
-
-    # Handle problematic struct columns that cause Parquet errors
-    # These columns contain empty structs that can't be written to Parquet
+    # Drop problematic struct columns
     struct_columns_to_drop = {
         'p42_applications': ['step_data'],
         'p42_contract': ['application_state'],
         'p42_creditcheck': ['bond_details'],
         'p42_outgoingmessage': ['content_variables']
     }
-
     if table_name.lower() in struct_columns_to_drop:
         for col in struct_columns_to_drop[table_name.lower()]:
             if col in df.columns:
@@ -220,6 +197,11 @@ def extract_table(pg_conn, table_name):
                 actual_col = next(c for c in df.columns if c.lower() == col.lower())
                 logger.info(f"Dropping problematic struct column '{actual_col}' from {table_name} (case-insensitive match)")
                 df = df.drop(columns=[actual_col])
+
+    # Convert object columns safely
+    for col in df.select_dtypes(include=['object']).columns:
+        df[col] = df[col].replace(['', 'nan', 'NaN', 'NULL', 'null'], None)
+        df[col] = df[col].apply(lambda x: str(x) if x is not None else None)
 
     df["load_at_ts_utc"] = pd.Timestamp.utcnow()
     return df
@@ -249,7 +231,7 @@ def load_to_snowflake(sf_conn, df, table_name):
 
     except Exception as e:
         logger.error(f"Error loading to {table_name.upper()}: {str(e)}")
-        # Try with a smaller chunk size if it fails
+        # Retry with smaller chunks
         try:
             logger.info(f"Retrying {table_name.upper()} with smaller chunks")
             success, nchunks, nrows, _ = write_pandas(
@@ -258,7 +240,7 @@ def load_to_snowflake(sf_conn, df, table_name):
                 table_name=table_name.upper(),
                 auto_create_table=True,
                 overwrite=True,
-                chunk_size=50000  # Smaller chunk size
+                chunk_size=50000
             )
             return success, nrows
         except Exception as retry_e:

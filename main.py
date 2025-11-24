@@ -172,7 +172,7 @@ def extract_table(pg_conn, table_name):
 
     # Columns that should be numeric
     numeric_cols = {
-        'p42_applicationlead': ['raw_lead_data'],
+        #'p42_applicationlead': ['raw_lead_data'],
         'p42_entrancescoring': ['primary_results', 'response_data']
     }
     if table_name.lower() in numeric_cols:

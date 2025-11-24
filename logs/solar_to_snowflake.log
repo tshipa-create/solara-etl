@@ -1,442 +1,203 @@
-2025-11-21 09:06:11,726 - pg_to_snowflake - INFO - Starting ETL run: Postgres -> Snowflake
-2025-11-21 09:06:11,729 - pg_to_snowflake - INFO - Connecting to Postgres solara.crqioqgga31u.af-south-1.rds.amazonaws.com:5432/solara as tableau
-2025-11-21 09:06:12,518 - pg_to_snowflake - INFO - Connecting to Snowflake
-2025-11-21 09:06:40,646 - pg_to_snowflake - INFO - Starting ETL run: Postgres -> Snowflake
-2025-11-21 09:06:40,647 - pg_to_snowflake - INFO - Connecting to Postgres solara.crqioqgga31u.af-south-1.rds.amazonaws.com:5432/solara as tableau
-2025-11-21 09:06:41,497 - pg_to_snowflake - INFO - Connecting to Snowflake
-2025-11-21 09:28:07,790 - __main__ - INFO - Starting ETL run: Postgres -> Snowflake
-2025-11-21 09:28:07,791 - __main__ - INFO - Connecting to RDS PostgreSQL at solara.crqioqgga31u.af-south-1.rds.amazonaws.com:5432
-2025-11-21 09:28:08,646 - __main__ - INFO - Establishing Snowflake connection
-2025-11-21 09:28:09,979 - __main__ - INFO - Fetching Snowflake private key from SSM (us-east-1)
-2025-11-21 09:28:15,714 - __main__ - INFO - Found 62 tables in Postgres schema 'public'
-2025-11-21 09:28:15,715 - __main__ - INFO - [1/62] Processing auditlog_logentry
-2025-11-21 09:28:15,715 - __main__ - INFO - Extracting auditlog_logentry
-2025-11-21 09:32:17,832 - __main__ - INFO - Loading 184602 rows to AUDITLOG_LOGENTRY
-2025-11-21 09:33:36,160 - __main__ - INFO - Establishing Snowflake connection
-2025-11-21 09:33:36,161 - __main__ - INFO - Establishing Snowflake connection
-2025-11-21 09:33:37,551 - __main__ - INFO - Fetching Snowflake private key from SSM
-2025-11-21 09:33:41,855 - __main__ - INFO - Establishing PostgreSQL connection
-2025-11-21 09:33:41,855 - __main__ - INFO - Connecting to RDS PostgreSQL at solara.crqioqgga31u.af-south-1.rds.amazonaws.com:5432
-2025-11-21 09:33:42,980 - __main__ - INFO - Found 62 tables in schema 'public'
-2025-11-21 09:33:42,980 - __main__ - INFO - Starting data extraction and loading
-2025-11-21 09:33:42,981 - __main__ - INFO - [1/62] Processing auditlog_logentry...
-2025-11-21 09:37:39,442 - __main__ - INFO - Loading 184660 rows to AUDITLOG_LOGENTRY
-2025-11-21 09:38:52,018 - __main__ - INFO - Successfully loaded 184660 rows in 1 chunks
-2025-11-21 09:38:52,019 - __main__ - INFO - auditlog_logentry: Loaded 184660 rows successfully.
-2025-11-21 09:38:53,020 - __main__ - INFO - [2/62] Processing auth_group...
-2025-11-21 09:38:53,353 - __main__ - INFO - Loading 11 rows to AUTH_GROUP
-2025-11-21 09:38:58,469 - __main__ - INFO - Successfully loaded 11 rows in 1 chunks
-2025-11-21 09:38:58,470 - __main__ - INFO - auth_group: Loaded 11 rows successfully.
-2025-11-21 09:38:59,472 - __main__ - INFO - [3/62] Processing auth_group_permissions...
-2025-11-21 09:38:59,596 - __main__ - INFO - Loading 442 rows to AUTH_GROUP_PERMISSIONS
-2025-11-21 09:39:04,138 - __main__ - INFO - Successfully loaded 442 rows in 1 chunks
-2025-11-21 09:39:04,140 - __main__ - INFO - auth_group_permissions: Loaded 442 rows successfully.
-2025-11-21 09:39:05,141 - __main__ - INFO - [4/62] Processing auth_permission...
-2025-11-21 09:39:05,272 - __main__ - INFO - Loading 236 rows to AUTH_PERMISSION
-2025-11-21 09:39:09,937 - __main__ - INFO - Successfully loaded 236 rows in 1 chunks
-2025-11-21 09:39:09,938 - __main__ - INFO - auth_permission: Loaded 236 rows successfully.
-2025-11-21 09:39:10,939 - __main__ - INFO - [5/62] Processing auth_user...
-2025-11-21 09:39:11,100 - __main__ - INFO - Loading 54 rows to AUTH_USER
-2025-11-21 09:39:15,673 - __main__ - INFO - Successfully loaded 54 rows in 1 chunks
-2025-11-21 09:39:15,673 - __main__ - INFO - auth_user: Loaded 54 rows successfully.
-2025-11-21 09:39:16,674 - __main__ - INFO - [6/62] Processing auth_user_groups...
-2025-11-21 09:39:16,902 - __main__ - INFO - Loading 91 rows to AUTH_USER_GROUPS
-2025-11-21 09:39:21,407 - __main__ - INFO - Successfully loaded 91 rows in 1 chunks
-2025-11-21 09:39:21,408 - __main__ - INFO - auth_user_groups: Loaded 91 rows successfully.
-2025-11-21 09:39:22,408 - __main__ - INFO - [7/62] Processing auth_user_user_permissions...
-2025-11-21 09:39:22,641 - __main__ - INFO - Loading 982 rows to AUTH_USER_USER_PERMISSIONS
-2025-11-21 09:39:26,939 - __main__ - INFO - Successfully loaded 982 rows in 1 chunks
-2025-11-21 09:39:26,939 - __main__ - INFO - auth_user_user_permissions: Loaded 982 rows successfully.
-2025-11-21 09:39:27,940 - __main__ - INFO - [8/62] Processing dealer_id...
-2025-11-21 09:39:28,062 - __main__ - INFO - Loading 1 rows to DEALER_ID
-2025-11-21 09:39:32,577 - __main__ - INFO - Successfully loaded 1 rows in 1 chunks
-2025-11-21 09:39:32,579 - __main__ - INFO - dealer_id: Loaded 1 rows successfully.
-2025-11-21 09:39:33,579 - __main__ - INFO - [9/62] Processing dealer_id2...
-2025-11-21 09:39:33,698 - __main__ - INFO - Loading 1 rows to DEALER_ID2
-2025-11-21 09:39:38,405 - __main__ - INFO - Successfully loaded 1 rows in 1 chunks
-2025-11-21 09:39:38,406 - __main__ - INFO - dealer_id2: Loaded 1 rows successfully.
-2025-11-21 09:39:39,408 - __main__ - INFO - [10/62] Processing django_admin_log...
-2025-11-21 09:39:39,482 - __main__ - INFO - Loading 99 rows to DJANGO_ADMIN_LOG
-2025-11-21 09:39:44,241 - __main__ - INFO - Successfully loaded 99 rows in 1 chunks
-2025-11-21 09:39:44,242 - __main__ - INFO - django_admin_log: Loaded 99 rows successfully.
-2025-11-21 09:39:45,243 - __main__ - INFO - [11/62] Processing django_content_type...
-2025-11-21 09:39:45,388 - __main__ - INFO - Loading 59 rows to DJANGO_CONTENT_TYPE
-2025-11-21 09:39:50,386 - __main__ - INFO - Successfully loaded 59 rows in 1 chunks
-2025-11-21 09:39:50,388 - __main__ - INFO - django_content_type: Loaded 59 rows successfully.
-2025-11-21 09:39:51,388 - __main__ - INFO - [12/62] Processing django_migrations...
-2025-11-21 09:39:51,471 - __main__ - INFO - Loading 143 rows to DJANGO_MIGRATIONS
-2025-11-21 09:39:56,222 - __main__ - INFO - Successfully loaded 143 rows in 1 chunks
-2025-11-21 09:39:56,222 - __main__ - INFO - django_migrations: Loaded 143 rows successfully.
-2025-11-21 09:39:57,223 - __main__ - INFO - [13/62] Processing django_session...
-2025-11-21 09:39:57,340 - __main__ - INFO - Loading 28 rows to DJANGO_SESSION
-2025-11-21 09:40:02,366 - __main__ - INFO - Successfully loaded 28 rows in 1 chunks
-2025-11-21 09:40:02,366 - __main__ - INFO - django_session: Loaded 28 rows successfully.
-2025-11-21 09:40:03,367 - __main__ - INFO - [14/62] Processing p42_applicationlead...
-2025-11-21 09:40:11,085 - __main__ - INFO - Loading 1860 rows to P42_APPLICATIONLEAD
-2025-11-21 09:40:18,349 - __main__ - INFO - Successfully loaded 1860 rows in 1 chunks
-2025-11-21 09:40:18,350 - __main__ - INFO - p42_applicationlead: Loaded 1860 rows successfully.
-2025-11-21 09:40:19,350 - __main__ - INFO - [15/62] Processing p42_applicationnotes...
-2025-11-21 09:40:19,499 - __main__ - INFO - Loading 16 rows to P42_APPLICATIONNOTES
-2025-11-21 09:40:24,791 - __main__ - INFO - Successfully loaded 16 rows in 1 chunks
-2025-11-21 09:40:24,792 - __main__ - INFO - p42_applicationnotes: Loaded 16 rows successfully.
-2025-11-21 09:40:25,793 - __main__ - INFO - [16/62] Processing p42_applications...
-2025-11-21 09:40:26,582 - __main__ - INFO - Loading 982 rows to P42_APPLICATIONS
-2025-11-21 09:40:27,227 - __main__ - ERROR - Error loading to P42_APPLICATIONS: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\tship\\AppData\\Local\\Temp\\tmpfgzzhrkg\\file0.txt'
-2025-11-21 09:40:27,228 - __main__ - INFO - Retrying P42_APPLICATIONS with smaller chunks
-2025-11-21 09:40:27,598 - __main__ - ERROR - Retry also failed for P42_APPLICATIONS: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\tship\\AppData\\Local\\Temp\\tmp0qlm8q2j\\file0.txt'
-2025-11-21 09:40:27,599 - __main__ - ERROR - p42_applications: Load failed.
-2025-11-21 09:40:28,600 - __main__ - INFO - [17/62] Processing p42_attachmentscraperlog...
-2025-11-21 09:40:28,999 - __main__ - INFO - Loading 987 rows to P42_ATTACHMENTSCRAPERLOG
-2025-11-21 09:40:34,805 - __main__ - INFO - Successfully loaded 987 rows in 1 chunks
-2025-11-21 09:40:34,805 - __main__ - INFO - p42_attachmentscraperlog: Loaded 987 rows successfully.
-2025-11-21 09:40:35,806 - __main__ - INFO - [18/62] Processing p42_businessentity...
-2025-11-21 09:40:35,957 - __main__ - INFO - Loading 1 rows to P42_BUSINESSENTITY
-2025-11-21 09:40:41,595 - __main__ - INFO - Successfully loaded 1 rows in 1 chunks
-2025-11-21 09:40:41,596 - __main__ - INFO - p42_businessentity: Loaded 1 rows successfully.
-2025-11-21 09:40:42,596 - __main__ - INFO - [19/62] Processing p42_chatconfig...
-2025-11-21 09:40:42,715 - __main__ - INFO - Loading 16 rows to P42_CHATCONFIG
-2025-11-21 09:40:48,243 - __main__ - INFO - Successfully loaded 16 rows in 1 chunks
-2025-11-21 09:40:48,244 - __main__ - INFO - p42_chatconfig: Loaded 16 rows successfully.
-2025-11-21 09:40:49,245 - __main__ - INFO - [20/62] Processing p42_claim...
-2025-11-21 09:40:49,382 - __main__ - INFO - Loading 3 rows to P42_CLAIM
-2025-11-21 09:40:53,975 - __main__ - INFO - Successfully loaded 3 rows in 1 chunks
-2025-11-21 09:40:53,975 - __main__ - INFO - p42_claim: Loaded 3 rows successfully.
-2025-11-21 09:40:54,976 - __main__ - INFO - [21/62] Processing p42_contract...
-2025-11-21 09:40:55,108 - __main__ - INFO - Dropping problematic struct column 'application_state' from p42_contract
-2025-11-21 09:40:55,119 - __main__ - INFO - Loading 36 rows to P42_CONTRACT
-2025-11-21 09:40:59,916 - __main__ - INFO - Successfully loaded 36 rows in 1 chunks
-2025-11-21 09:40:59,917 - __main__ - INFO - p42_contract: Loaded 36 rows successfully.
-2025-11-21 09:41:00,917 - __main__ - INFO - [22/62] Processing p42_contractsequence...
-2025-11-21 09:41:01,041 - __main__ - INFO - Loading 6 rows to P42_CONTRACTSEQUENCE
-2025-11-21 09:41:05,355 - __main__ - INFO - Successfully loaded 6 rows in 1 chunks
-2025-11-21 09:41:05,357 - __main__ - INFO - p42_contractsequence: Loaded 6 rows successfully.
-2025-11-21 09:41:06,358 - __main__ - INFO - [23/62] Processing p42_creditcheck...
-2025-11-21 09:41:38,706 - __main__ - INFO - Loading 1174 rows to P42_CREDITCHECK
-2025-11-21 09:41:39,679 - __main__ - ERROR - Error loading to P42_CREDITCHECK: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\tship\\AppData\\Local\\Temp\\tmp_9qtb5b6\\file0.txt'
-2025-11-21 09:41:39,680 - __main__ - INFO - Retrying P42_CREDITCHECK with smaller chunks
-2025-11-21 09:41:40,412 - __main__ - ERROR - Retry also failed for P42_CREDITCHECK: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\tship\\AppData\\Local\\Temp\\tmp6fq7hwtr\\file0.txt'
-2025-11-21 09:41:40,415 - __main__ - ERROR - p42_creditcheck: Load failed.
-2025-11-21 09:41:41,415 - __main__ - INFO - [24/62] Processing p42_customer...
-2025-11-21 09:41:43,257 - __main__ - INFO - Loading 1795 rows to P42_CUSTOMER
-2025-11-21 09:41:50,703 - __main__ - INFO - Successfully loaded 1795 rows in 1 chunks
-2025-11-21 09:41:50,703 - __main__ - INFO - p42_customer: Loaded 1795 rows successfully.
-2025-11-21 09:41:51,704 - __main__ - INFO - [25/62] Processing p42_dealer...
-2025-11-21 09:41:51,828 - __main__ - INFO - Loading 14 rows to P42_DEALER
-2025-11-21 09:41:56,812 - __main__ - INFO - Successfully loaded 14 rows in 1 chunks
-2025-11-21 09:41:56,812 - __main__ - INFO - p42_dealer: Loaded 14 rows successfully.
-2025-11-21 09:41:57,813 - __main__ - INFO - [26/62] Processing p42_dealersalesperson...
-2025-11-21 09:41:57,996 - __main__ - INFO - Loading 87 rows to P42_DEALERSALESPERSON
-2025-11-21 09:42:02,283 - __main__ - INFO - Successfully loaded 87 rows in 1 chunks
-2025-11-21 09:42:02,283 - __main__ - INFO - p42_dealersalesperson: Loaded 87 rows successfully.
-2025-11-21 09:42:03,284 - __main__ - INFO - [27/62] Processing p42_dealervehicles...
-2025-11-21 09:42:03,530 - __main__ - INFO - Loading 113 rows to P42_DEALERVEHICLES
-2025-11-21 09:42:07,907 - __main__ - INFO - Successfully loaded 113 rows in 1 chunks
-2025-11-21 09:42:07,908 - __main__ - INFO - p42_dealervehicles: Loaded 113 rows successfully.
-2025-11-21 09:42:08,909 - __main__ - INFO - [28/62] Processing p42_document...
-2025-11-21 09:42:09,145 - __main__ - INFO - Loading 159 rows to P42_DOCUMENT
-2025-11-21 09:42:14,050 - __main__ - INFO - Successfully loaded 159 rows in 1 chunks
-2025-11-21 09:42:14,050 - __main__ - INFO - p42_document: Loaded 159 rows successfully.
-2025-11-21 09:42:15,051 - __main__ - INFO - [29/62] Processing p42_emailscraperlog...
-2025-11-21 09:42:16,753 - __main__ - INFO - Loading 4425 rows to P42_EMAILSCRAPERLOG
-2025-11-21 09:42:24,089 - __main__ - INFO - Successfully loaded 4425 rows in 1 chunks
-2025-11-21 09:42:24,091 - __main__ - INFO - p42_emailscraperlog: Loaded 4425 rows successfully.
-2025-11-21 09:42:25,093 - __main__ - INFO - [30/62] Processing p42_entrancescoring...
-2025-11-21 09:42:59,330 - __main__ - INFO - Loading 1217 rows to P42_ENTRANCESCORING
-2025-11-21 09:42:59,851 - __main__ - ERROR - Error loading to P42_ENTRANCESCORING: ("Could not convert '45000.0' with type str: tried to convert to double", 'Conversion failed for column RESPONSE_DATA with type object')
-2025-11-21 09:42:59,851 - __main__ - INFO - Retrying P42_ENTRANCESCORING with smaller chunks
-2025-11-21 09:43:00,456 - __main__ - ERROR - Retry also failed for P42_ENTRANCESCORING: ("Could not convert '45000.0' with type str: tried to convert to double", 'Conversion failed for column RESPONSE_DATA with type object')
-2025-11-21 09:43:00,456 - __main__ - ERROR - p42_entrancescoring: Load failed.
-2025-11-21 09:43:01,457 - __main__ - INFO - [31/62] Processing p42_gmailcredential...
-2025-11-21 09:43:01,609 - __main__ - INFO - Loading 1 rows to P42_GMAILCREDENTIAL
-2025-11-21 09:43:06,992 - __main__ - INFO - Successfully loaded 1 rows in 1 chunks
-2025-11-21 09:43:06,992 - __main__ - INFO - p42_gmailcredential: Loaded 1 rows successfully.
-2025-11-21 09:43:07,994 - __main__ - INFO - [32/62] Processing p42_incomingmessage...
-2025-11-21 09:43:08,346 - __main__ - INFO - Loading 88 rows to P42_INCOMINGMESSAGE
-2025-11-21 09:43:12,417 - __main__ - INFO - Successfully loaded 88 rows in 1 chunks
-2025-11-21 09:43:12,419 - __main__ - INFO - p42_incomingmessage: Loaded 88 rows successfully.
-2025-11-21 09:43:13,420 - __main__ - INFO - [33/62] Processing p42_inspection...
-2025-11-21 09:43:13,518 - __main__ - INFO - p42_inspection: No data found, skipping.
-2025-11-21 09:43:14,519 - __main__ - INFO - [34/62] Processing p42_kyccheck...
-2025-11-21 09:43:14,683 - __main__ - INFO - Loading 13 rows to P42_KYCCHECK
-2025-11-21 09:43:20,319 - __main__ - INFO - Successfully loaded 13 rows in 1 chunks
-2025-11-21 09:43:20,321 - __main__ - INFO - p42_kyccheck: Loaded 13 rows successfully.
-2025-11-21 09:43:21,322 - __main__ - INFO - [35/62] Processing p42_outgoingmessage...
-2025-11-21 09:43:21,762 - __main__ - INFO - Dropping problematic struct column 'content_variables' from p42_outgoingmessage
-2025-11-21 09:43:21,767 - __main__ - INFO - Loading 101 rows to P42_OUTGOINGMESSAGE
-2025-11-21 09:43:26,037 - __main__ - INFO - Successfully loaded 101 rows in 1 chunks
-2025-11-21 09:43:26,038 - __main__ - INFO - p42_outgoingmessage: Loaded 101 rows successfully.
-2025-11-21 09:43:27,039 - __main__ - INFO - [36/62] Processing p42_prompt...
-2025-11-21 09:43:27,249 - __main__ - INFO - Loading 1 rows to P42_PROMPT
-2025-11-21 09:43:31,977 - __main__ - INFO - Successfully loaded 1 rows in 1 chunks
-2025-11-21 09:43:31,978 - __main__ - INFO - p42_prompt: Loaded 1 rows successfully.
-2025-11-21 09:43:32,978 - __main__ - INFO - [37/62] Processing p42_sagerequestlog...
-2025-11-21 09:43:37,326 - __main__ - INFO - Loading 2976 rows to P42_SAGEREQUESTLOG
-2025-11-21 09:43:48,360 - __main__ - INFO - Successfully loaded 2976 rows in 1 chunks
-2025-11-21 09:43:48,360 - __main__ - INFO - p42_sagerequestlog: Loaded 2976 rows successfully.
-2025-11-21 09:43:49,361 - __main__ - INFO - [38/62] Processing p42_salarydata...
-2025-11-21 09:43:49,450 - __main__ - INFO - p42_salarydata: No data found, skipping.
-2025-11-21 09:43:50,451 - __main__ - INFO - [39/62] Processing p42_scoringmaxrentconfig...
-2025-11-21 09:43:50,619 - __main__ - INFO - p42_scoringmaxrentconfig: No data found, skipping.
-2025-11-21 09:43:51,621 - __main__ - INFO - [40/62] Processing p42_scoringofferdecision...
-2025-11-21 09:43:51,742 - __main__ - INFO - p42_scoringofferdecision: No data found, skipping.
-2025-11-21 09:43:52,743 - __main__ - INFO - [41/62] Processing p42_scoringresult...
-2025-11-21 09:43:52,870 - __main__ - INFO - p42_scoringresult: No data found, skipping.
-2025-11-21 09:43:53,871 - __main__ - INFO - [42/62] Processing p42_scoringversions...
-2025-11-21 09:43:53,995 - __main__ - INFO - p42_scoringversions: No data found, skipping.
-2025-11-21 09:43:55,002 - __main__ - INFO - [43/62] Processing p42_service...
-2025-11-21 09:43:55,122 - __main__ - INFO - p42_service: No data found, skipping.
-2025-11-21 09:43:56,123 - __main__ - INFO - [44/62] Processing p42_signing...
-2025-11-21 09:43:56,248 - __main__ - INFO - p42_signing: No data found, skipping.
-2025-11-21 09:43:57,249 - __main__ - INFO - [45/62] Processing p42_systemmessage...
-2025-11-21 09:43:57,316 - __main__ - INFO - Loading 4 rows to P42_SYSTEMMESSAGE
-2025-11-21 09:44:02,594 - __main__ - INFO - Successfully loaded 4 rows in 1 chunks
-2025-11-21 09:44:02,594 - __main__ - INFO - p42_systemmessage: Loaded 4 rows successfully.
-2025-11-21 09:44:03,595 - __main__ - INFO - [46/62] Processing p42_task...
-2025-11-21 09:44:03,728 - __main__ - INFO - Loading 39 rows to P42_TASK
-2025-11-21 09:44:08,019 - __main__ - INFO - Successfully loaded 39 rows in 1 chunks
-2025-11-21 09:44:08,019 - __main__ - INFO - p42_task: Loaded 39 rows successfully.
-2025-11-21 09:44:09,020 - __main__ - INFO - [47/62] Processing p42_taskattachment...
-2025-11-21 09:44:09,150 - __main__ - INFO - Loading 19 rows to P42_TASKATTACHMENT
-2025-11-21 09:44:13,448 - __main__ - INFO - Successfully loaded 19 rows in 1 chunks
-2025-11-21 09:44:13,449 - __main__ - INFO - p42_taskattachment: Loaded 19 rows successfully.
-2025-11-21 09:44:14,449 - __main__ - INFO - [48/62] Processing p42_taskcomment...
-2025-11-21 09:44:14,683 - __main__ - INFO - Loading 68 rows to P42_TASKCOMMENT
-2025-11-21 09:44:19,008 - __main__ - INFO - Successfully loaded 68 rows in 1 chunks
-2025-11-21 09:44:19,008 - __main__ - INFO - p42_taskcomment: Loaded 68 rows successfully.
-2025-11-21 09:44:20,009 - __main__ - INFO - [49/62] Processing p42_template...
-2025-11-21 09:44:20,107 - __main__ - INFO - p42_template: No data found, skipping.
-2025-11-21 09:44:21,108 - __main__ - INFO - [50/62] Processing p42_trip...
-2025-11-21 09:44:51,720 - __main__ - INFO - Loading 20966 rows to P42_TRIP
-2025-11-21 09:45:11,213 - __main__ - INFO - Successfully loaded 20966 rows in 1 chunks
-2025-11-21 09:45:11,213 - __main__ - INFO - p42_trip: Loaded 20966 rows successfully.
-2025-11-21 09:45:12,214 - __main__ - INFO - [51/62] Processing p42_validation...
-2025-11-21 09:45:12,358 - __main__ - INFO - p42_validation: No data found, skipping.
-2025-11-21 09:45:13,359 - __main__ - INFO - [52/62] Processing p42_vehicle...
-2025-11-21 09:45:13,551 - __main__ - INFO - Loading 25 rows to P42_VEHICLE
-2025-11-21 09:45:19,390 - __main__ - INFO - Successfully loaded 25 rows in 1 chunks
-2025-11-21 09:45:19,392 - __main__ - INFO - p42_vehicle: Loaded 25 rows successfully.
-2025-11-21 09:45:20,392 - __main__ - INFO - [53/62] Processing p42_vehicledata...
-2025-11-21 09:46:33,025 - __main__ - INFO - Establishing Snowflake connection
-2025-11-21 09:46:33,026 - __main__ - INFO - Establishing Snowflake connection
-2025-11-21 09:46:34,346 - __main__ - INFO - Fetching Snowflake private key from SSM
-2025-11-21 09:46:38,963 - __main__ - INFO - Establishing PostgreSQL connection
-2025-11-21 09:46:38,964 - __main__ - INFO - Connecting to RDS PostgreSQL at solara.crqioqgga31u.af-south-1.rds.amazonaws.com:5432
-2025-11-21 09:46:39,981 - __main__ - INFO - Found 62 tables in schema 'public'
-2025-11-21 09:46:39,982 - __main__ - INFO - Starting data extraction and loading
-2025-11-21 09:46:39,983 - __main__ - INFO - [1/62] Processing auditlog_logentry...
-2025-11-21 09:49:49,861 - __main__ - INFO - Loading 184686 rows to AUDITLOG_LOGENTRY
-2025-11-21 09:51:05,690 - __main__ - INFO - Successfully loaded 184686 rows in 1 chunks
-2025-11-21 09:51:05,691 - __main__ - INFO - auditlog_logentry: Loaded 184686 rows successfully.
-2025-11-21 09:51:06,692 - __main__ - INFO - [2/62] Processing auth_group...
-2025-11-21 09:51:06,972 - __main__ - INFO - Loading 11 rows to AUTH_GROUP
-2025-11-21 09:51:11,516 - __main__ - INFO - Successfully loaded 11 rows in 1 chunks
-2025-11-21 09:51:11,517 - __main__ - INFO - auth_group: Loaded 11 rows successfully.
-2025-11-21 09:51:12,517 - __main__ - INFO - [3/62] Processing auth_group_permissions...
-2025-11-21 09:51:12,593 - __main__ - INFO - Loading 442 rows to AUTH_GROUP_PERMISSIONS
-2025-11-21 09:51:17,226 - __main__ - INFO - Successfully loaded 442 rows in 1 chunks
-2025-11-21 09:51:17,227 - __main__ - INFO - auth_group_permissions: Loaded 442 rows successfully.
-2025-11-21 09:51:18,228 - __main__ - INFO - [4/62] Processing auth_permission...
-2025-11-21 09:51:18,366 - __main__ - INFO - Loading 236 rows to AUTH_PERMISSION
-2025-11-21 09:51:22,341 - __main__ - INFO - Successfully loaded 236 rows in 1 chunks
-2025-11-21 09:51:22,342 - __main__ - INFO - auth_permission: Loaded 236 rows successfully.
-2025-11-21 09:51:23,343 - __main__ - INFO - [5/62] Processing auth_user...
-2025-11-21 09:51:23,437 - __main__ - INFO - Loading 54 rows to AUTH_USER
-2025-11-21 09:51:28,455 - __main__ - INFO - Successfully loaded 54 rows in 1 chunks
-2025-11-21 09:51:28,455 - __main__ - INFO - auth_user: Loaded 54 rows successfully.
-2025-11-21 09:51:29,456 - __main__ - INFO - [6/62] Processing auth_user_groups...
-2025-11-21 09:51:29,523 - __main__ - INFO - Loading 91 rows to AUTH_USER_GROUPS
-2025-11-21 09:51:33,941 - __main__ - INFO - Successfully loaded 91 rows in 1 chunks
-2025-11-21 09:51:33,942 - __main__ - INFO - auth_user_groups: Loaded 91 rows successfully.
-2025-11-21 09:51:34,943 - __main__ - INFO - [7/62] Processing auth_user_user_permissions...
-2025-11-21 09:51:35,070 - __main__ - INFO - Loading 982 rows to AUTH_USER_USER_PERMISSIONS
-2025-11-21 09:51:39,391 - __main__ - INFO - Successfully loaded 982 rows in 1 chunks
-2025-11-21 09:51:39,391 - __main__ - INFO - auth_user_user_permissions: Loaded 982 rows successfully.
-2025-11-21 09:51:40,392 - __main__ - INFO - [8/62] Processing dealer_id...
-2025-11-21 09:51:40,460 - __main__ - INFO - Loading 1 rows to DEALER_ID
-2025-11-21 09:51:45,351 - __main__ - INFO - Successfully loaded 1 rows in 1 chunks
-2025-11-21 09:51:45,351 - __main__ - INFO - dealer_id: Loaded 1 rows successfully.
-2025-11-21 09:51:46,352 - __main__ - INFO - [9/62] Processing dealer_id2...
-2025-11-21 09:51:46,460 - __main__ - INFO - Loading 1 rows to DEALER_ID2
-2025-11-21 09:51:50,657 - __main__ - INFO - Successfully loaded 1 rows in 1 chunks
-2025-11-21 09:51:50,658 - __main__ - INFO - dealer_id2: Loaded 1 rows successfully.
-2025-11-21 09:51:51,659 - __main__ - INFO - [10/62] Processing django_admin_log...
-2025-11-21 09:51:51,772 - __main__ - INFO - Loading 99 rows to DJANGO_ADMIN_LOG
-2025-11-21 09:51:56,529 - __main__ - INFO - Successfully loaded 99 rows in 1 chunks
-2025-11-21 09:51:56,530 - __main__ - INFO - django_admin_log: Loaded 99 rows successfully.
-2025-11-21 09:51:57,531 - __main__ - INFO - [11/62] Processing django_content_type...
-2025-11-21 09:51:57,605 - __main__ - INFO - Loading 59 rows to DJANGO_CONTENT_TYPE
-2025-11-21 09:52:02,123 - __main__ - INFO - Successfully loaded 59 rows in 1 chunks
-2025-11-21 09:52:02,124 - __main__ - INFO - django_content_type: Loaded 59 rows successfully.
-2025-11-21 09:52:03,125 - __main__ - INFO - [12/62] Processing django_migrations...
-2025-11-21 09:52:03,253 - __main__ - INFO - Loading 143 rows to DJANGO_MIGRATIONS
-2025-11-21 09:52:07,506 - __main__ - INFO - Successfully loaded 143 rows in 1 chunks
-2025-11-21 09:52:07,507 - __main__ - INFO - django_migrations: Loaded 143 rows successfully.
-2025-11-21 09:52:08,508 - __main__ - INFO - [13/62] Processing django_session...
-2025-11-21 09:52:08,587 - __main__ - INFO - Loading 28 rows to DJANGO_SESSION
-2025-11-21 09:52:12,769 - __main__ - INFO - Successfully loaded 28 rows in 1 chunks
-2025-11-21 09:52:12,770 - __main__ - INFO - django_session: Loaded 28 rows successfully.
-2025-11-21 09:52:13,772 - __main__ - INFO - [14/62] Processing p42_applicationlead...
-2025-11-21 09:52:22,374 - __main__ - INFO - Loading 1861 rows to P42_APPLICATIONLEAD
-2025-11-21 09:52:28,892 - __main__ - INFO - Successfully loaded 1861 rows in 1 chunks
-2025-11-21 09:52:28,893 - __main__ - INFO - p42_applicationlead: Loaded 1861 rows successfully.
-2025-11-21 09:52:29,894 - __main__ - INFO - [15/62] Processing p42_applicationnotes...
-2025-11-21 09:52:29,940 - __main__ - INFO - Loading 16 rows to P42_APPLICATIONNOTES
-2025-11-21 09:52:34,148 - __main__ - INFO - Successfully loaded 16 rows in 1 chunks
-2025-11-21 09:52:34,150 - __main__ - INFO - p42_applicationnotes: Loaded 16 rows successfully.
-2025-11-21 09:52:35,152 - __main__ - INFO - [16/62] Processing p42_applications...
-2025-11-21 09:52:35,543 - __main__ - INFO - Loading 983 rows to P42_APPLICATIONS
-2025-11-21 09:52:39,661 - __main__ - INFO - Successfully loaded 983 rows in 1 chunks
-2025-11-21 09:52:39,662 - __main__ - INFO - p42_applications: Loaded 983 rows successfully.
-2025-11-21 09:52:40,663 - __main__ - INFO - [17/62] Processing p42_attachmentscraperlog...
-2025-11-21 09:52:40,912 - __main__ - INFO - Loading 988 rows to P42_ATTACHMENTSCRAPERLOG
-2025-11-21 09:52:45,113 - __main__ - INFO - Successfully loaded 988 rows in 1 chunks
-2025-11-21 09:52:45,113 - __main__ - INFO - p42_attachmentscraperlog: Loaded 988 rows successfully.
-2025-11-21 09:52:46,114 - __main__ - INFO - [18/62] Processing p42_businessentity...
-2025-11-21 09:52:46,194 - __main__ - INFO - Loading 1 rows to P42_BUSINESSENTITY
-2025-11-21 09:52:50,398 - __main__ - INFO - Successfully loaded 1 rows in 1 chunks
-2025-11-21 09:52:50,399 - __main__ - INFO - p42_businessentity: Loaded 1 rows successfully.
-2025-11-21 09:52:51,400 - __main__ - INFO - [19/62] Processing p42_chatconfig...
-2025-11-21 09:52:51,448 - __main__ - INFO - Loading 16 rows to P42_CHATCONFIG
-2025-11-21 09:52:56,975 - __main__ - INFO - Successfully loaded 16 rows in 1 chunks
-2025-11-21 09:52:56,976 - __main__ - INFO - p42_chatconfig: Loaded 16 rows successfully.
-2025-11-21 09:52:57,977 - __main__ - INFO - [20/62] Processing p42_claim...
-2025-11-21 09:52:58,058 - __main__ - INFO - Loading 3 rows to P42_CLAIM
-2025-11-21 09:53:02,267 - __main__ - INFO - Successfully loaded 3 rows in 1 chunks
-2025-11-21 09:53:02,268 - __main__ - INFO - p42_claim: Loaded 3 rows successfully.
-2025-11-21 09:53:03,269 - __main__ - INFO - [21/62] Processing p42_contract...
-2025-11-21 09:53:03,341 - __main__ - INFO - Dropping problematic struct column 'application_state' from p42_contract
-2025-11-21 09:53:03,380 - __main__ - INFO - Loading 36 rows to P42_CONTRACT
-2025-11-21 09:53:07,839 - __main__ - INFO - Successfully loaded 36 rows in 1 chunks
-2025-11-21 09:53:07,839 - __main__ - INFO - p42_contract: Loaded 36 rows successfully.
-2025-11-21 09:53:08,840 - __main__ - INFO - [22/62] Processing p42_contractsequence...
-2025-11-21 09:53:08,905 - __main__ - INFO - Loading 6 rows to P42_CONTRACTSEQUENCE
-2025-11-21 09:53:12,934 - __main__ - INFO - Successfully loaded 6 rows in 1 chunks
-2025-11-21 09:53:12,935 - __main__ - INFO - p42_contractsequence: Loaded 6 rows successfully.
-2025-11-21 09:53:13,936 - __main__ - INFO - [23/62] Processing p42_creditcheck...
-2025-11-21 09:53:31,845 - __main__ - INFO - Loading 1175 rows to P42_CREDITCHECK
-2025-11-21 09:53:48,287 - __main__ - INFO - Successfully loaded 1175 rows in 1 chunks
-2025-11-21 09:53:48,287 - __main__ - INFO - p42_creditcheck: Loaded 1175 rows successfully.
-2025-11-21 09:53:49,288 - __main__ - INFO - [24/62] Processing p42_customer...
-2025-11-21 09:53:50,735 - __main__ - INFO - Loading 1796 rows to P42_CUSTOMER
-2025-11-21 09:53:58,038 - __main__ - INFO - Successfully loaded 1796 rows in 1 chunks
-2025-11-21 09:53:58,039 - __main__ - INFO - p42_customer: Loaded 1796 rows successfully.
-2025-11-21 09:53:59,040 - __main__ - INFO - [25/62] Processing p42_dealer...
-2025-11-21 09:53:59,185 - __main__ - INFO - Loading 14 rows to P42_DEALER
-2025-11-21 09:54:05,210 - __main__ - INFO - Successfully loaded 14 rows in 1 chunks
-2025-11-21 09:54:05,212 - __main__ - INFO - p42_dealer: Loaded 14 rows successfully.
-2025-11-21 09:54:06,212 - __main__ - INFO - [26/62] Processing p42_dealersalesperson...
-2025-11-21 09:54:06,268 - __main__ - INFO - Loading 87 rows to P42_DEALERSALESPERSON
-2025-11-21 09:54:10,636 - __main__ - INFO - Successfully loaded 87 rows in 1 chunks
-2025-11-21 09:54:10,637 - __main__ - INFO - p42_dealersalesperson: Loaded 87 rows successfully.
-2025-11-21 09:54:11,637 - __main__ - INFO - [27/62] Processing p42_dealervehicles...
-2025-11-21 09:54:11,819 - __main__ - INFO - Loading 113 rows to P42_DEALERVEHICLES
-2025-11-21 09:54:16,063 - __main__ - INFO - Successfully loaded 113 rows in 1 chunks
-2025-11-21 09:54:16,064 - __main__ - INFO - p42_dealervehicles: Loaded 113 rows successfully.
-2025-11-21 09:54:17,065 - __main__ - INFO - [28/62] Processing p42_document...
-2025-11-21 09:54:17,301 - __main__ - INFO - Loading 159 rows to P42_DOCUMENT
-2025-11-21 09:54:21,807 - __main__ - INFO - Successfully loaded 159 rows in 1 chunks
-2025-11-21 09:54:21,808 - __main__ - INFO - p42_document: Loaded 159 rows successfully.
-2025-11-21 09:54:22,810 - __main__ - INFO - [29/62] Processing p42_emailscraperlog...
-2025-11-21 09:54:24,886 - __main__ - INFO - Loading 4430 rows to P42_EMAILSCRAPERLOG
-2025-11-21 09:54:31,936 - __main__ - INFO - Successfully loaded 4430 rows in 1 chunks
-2025-11-21 09:54:31,937 - __main__ - INFO - p42_emailscraperlog: Loaded 4430 rows successfully.
-2025-11-21 09:54:32,938 - __main__ - INFO - [30/62] Processing p42_entrancescoring...
-2025-11-21 09:55:16,045 - __main__ - INFO - Loading 1218 rows to P42_ENTRANCESCORING
-2025-11-21 09:55:22,064 - __main__ - INFO - Successfully loaded 1218 rows in 1 chunks
-2025-11-21 09:55:22,064 - __main__ - INFO - p42_entrancescoring: Loaded 1218 rows successfully.
-2025-11-21 09:55:23,065 - __main__ - INFO - [31/62] Processing p42_gmailcredential...
-2025-11-21 09:55:23,144 - __main__ - INFO - Loading 1 rows to P42_GMAILCREDENTIAL
-2025-11-21 09:55:27,846 - __main__ - INFO - Successfully loaded 1 rows in 1 chunks
-2025-11-21 09:55:27,847 - __main__ - INFO - p42_gmailcredential: Loaded 1 rows successfully.
-2025-11-21 09:55:28,848 - __main__ - INFO - [32/62] Processing p42_incomingmessage...
-2025-11-21 09:55:29,082 - __main__ - INFO - Loading 88 rows to P42_INCOMINGMESSAGE
-2025-11-21 09:55:34,704 - __main__ - INFO - Successfully loaded 88 rows in 1 chunks
-2025-11-21 09:55:34,705 - __main__ - INFO - p42_incomingmessage: Loaded 88 rows successfully.
-2025-11-21 09:55:35,705 - __main__ - INFO - [33/62] Processing p42_inspection...
-2025-11-21 09:55:35,761 - __main__ - INFO - p42_inspection: No data found, skipping.
-2025-11-21 09:55:36,762 - __main__ - INFO - [34/62] Processing p42_kyccheck...
-2025-11-21 09:55:36,861 - __main__ - INFO - Loading 13 rows to P42_KYCCHECK
-2025-11-21 09:55:42,221 - __main__ - INFO - Successfully loaded 13 rows in 1 chunks
-2025-11-21 09:55:42,222 - __main__ - INFO - p42_kyccheck: Loaded 13 rows successfully.
-2025-11-21 09:55:43,223 - __main__ - INFO - [35/62] Processing p42_outgoingmessage...
-2025-11-21 09:55:43,622 - __main__ - INFO - Dropping problematic struct column 'content_variables' from p42_outgoingmessage
-2025-11-21 09:55:43,632 - __main__ - INFO - Loading 101 rows to P42_OUTGOINGMESSAGE
-2025-11-21 09:55:49,559 - __main__ - INFO - Successfully loaded 101 rows in 1 chunks
-2025-11-21 09:55:49,560 - __main__ - INFO - p42_outgoingmessage: Loaded 101 rows successfully.
-2025-11-21 09:55:50,561 - __main__ - INFO - [36/62] Processing p42_prompt...
-2025-11-21 09:55:50,810 - __main__ - INFO - Loading 1 rows to P42_PROMPT
-2025-11-21 09:55:56,822 - __main__ - INFO - Successfully loaded 1 rows in 1 chunks
-2025-11-21 09:55:56,823 - __main__ - INFO - p42_prompt: Loaded 1 rows successfully.
-2025-11-21 09:55:57,824 - __main__ - INFO - [37/62] Processing p42_sagerequestlog...
-2025-11-21 09:56:02,476 - __main__ - INFO - Loading 2976 rows to P42_SAGEREQUESTLOG
-2025-11-21 09:56:09,628 - __main__ - INFO - Successfully loaded 2976 rows in 1 chunks
-2025-11-21 09:56:09,629 - __main__ - INFO - p42_sagerequestlog: Loaded 2976 rows successfully.
-2025-11-21 09:56:10,630 - __main__ - INFO - [38/62] Processing p42_salarydata...
-2025-11-21 09:56:10,714 - __main__ - INFO - p42_salarydata: No data found, skipping.
-2025-11-21 09:56:11,715 - __main__ - INFO - [39/62] Processing p42_scoringmaxrentconfig...
-2025-11-21 09:56:11,779 - __main__ - INFO - p42_scoringmaxrentconfig: No data found, skipping.
-2025-11-21 09:56:12,780 - __main__ - INFO - [40/62] Processing p42_scoringofferdecision...
-2025-11-21 09:56:12,901 - __main__ - INFO - p42_scoringofferdecision: No data found, skipping.
-2025-11-21 09:56:13,902 - __main__ - INFO - [41/62] Processing p42_scoringresult...
-2025-11-21 09:56:13,962 - __main__ - INFO - p42_scoringresult: No data found, skipping.
-2025-11-21 09:56:14,964 - __main__ - INFO - [42/62] Processing p42_scoringversions...
-2025-11-21 09:56:15,053 - __main__ - INFO - p42_scoringversions: No data found, skipping.
-2025-11-21 09:56:16,055 - __main__ - INFO - [43/62] Processing p42_service...
-2025-11-21 09:56:16,178 - __main__ - INFO - p42_service: No data found, skipping.
-2025-11-21 09:56:17,179 - __main__ - INFO - [44/62] Processing p42_signing...
-2025-11-21 09:56:17,241 - __main__ - INFO - p42_signing: No data found, skipping.
-2025-11-21 09:56:18,242 - __main__ - INFO - [45/62] Processing p42_systemmessage...
-2025-11-21 09:56:18,344 - __main__ - INFO - Loading 4 rows to P42_SYSTEMMESSAGE
-2025-11-21 09:56:23,754 - __main__ - INFO - Successfully loaded 4 rows in 1 chunks
-2025-11-21 09:56:23,755 - __main__ - INFO - p42_systemmessage: Loaded 4 rows successfully.
-2025-11-21 09:56:24,756 - __main__ - INFO - [46/62] Processing p42_task...
-2025-11-21 09:56:24,997 - __main__ - INFO - Loading 39 rows to P42_TASK
-2025-11-21 09:56:29,283 - __main__ - INFO - Successfully loaded 39 rows in 1 chunks
-2025-11-21 09:56:29,284 - __main__ - INFO - p42_task: Loaded 39 rows successfully.
-2025-11-21 09:56:30,284 - __main__ - INFO - [47/62] Processing p42_taskattachment...
-2025-11-21 09:56:30,415 - __main__ - INFO - Loading 19 rows to P42_TASKATTACHMENT
-2025-11-21 09:56:35,325 - __main__ - INFO - Successfully loaded 19 rows in 1 chunks
-2025-11-21 09:56:35,326 - __main__ - INFO - p42_taskattachment: Loaded 19 rows successfully.
-2025-11-21 09:56:36,327 - __main__ - INFO - [48/62] Processing p42_taskcomment...
-2025-11-21 09:56:36,567 - __main__ - INFO - Loading 68 rows to P42_TASKCOMMENT
-2025-11-21 09:56:41,264 - __main__ - INFO - Successfully loaded 68 rows in 1 chunks
-2025-11-21 09:56:41,264 - __main__ - INFO - p42_taskcomment: Loaded 68 rows successfully.
-2025-11-21 09:56:42,265 - __main__ - INFO - [49/62] Processing p42_template...
-2025-11-21 09:56:42,392 - __main__ - INFO - p42_template: No data found, skipping.
-2025-11-21 09:56:43,393 - __main__ - INFO - [50/62] Processing p42_trip...
-2025-11-21 09:57:12,459 - __main__ - INFO - Loading 20966 rows to P42_TRIP
-2025-11-21 09:57:23,828 - __main__ - INFO - Successfully loaded 20966 rows in 1 chunks
-2025-11-21 09:57:23,829 - __main__ - INFO - p42_trip: Loaded 20966 rows successfully.
-2025-11-21 09:57:24,830 - __main__ - INFO - [51/62] Processing p42_validation...
-2025-11-21 09:57:24,926 - __main__ - INFO - p42_validation: No data found, skipping.
-2025-11-21 09:57:25,926 - __main__ - INFO - [52/62] Processing p42_vehicle...
-2025-11-21 09:57:26,038 - __main__ - INFO - Loading 25 rows to P42_VEHICLE
-2025-11-21 09:57:32,429 - __main__ - INFO - Successfully loaded 25 rows in 1 chunks
-2025-11-21 09:57:32,429 - __main__ - INFO - p42_vehicle: Loaded 25 rows successfully.
-2025-11-21 09:57:33,430 - __main__ - INFO - [53/62] Processing p42_vehicledata...
-2025-11-21 09:58:32,575 - __main__ - INFO - Loading 45238 rows to P42_VEHICLEDATA
-2025-11-21 09:58:43,960 - __main__ - INFO - Successfully loaded 45238 rows in 1 chunks
-2025-11-21 09:58:43,960 - __main__ - INFO - p42_vehicledata: Loaded 45238 rows successfully.
-2025-11-21 09:58:44,961 - __main__ - INFO - [54/62] Processing p42_vehiclemake...
-2025-11-21 09:58:45,116 - __main__ - INFO - Loading 11 rows to P42_VEHICLEMAKE
-2025-11-21 09:58:50,288 - __main__ - INFO - Successfully loaded 11 rows in 1 chunks
-2025-11-21 09:58:50,288 - __main__ - INFO - p42_vehiclemake: Loaded 11 rows successfully.
-2025-11-21 09:58:51,289 - __main__ - INFO - [55/62] Processing p42_warranty...
-2025-11-21 09:58:51,399 - __main__ - INFO - Loading 8 rows to P42_WARRANTY
-2025-11-21 09:58:56,533 - __main__ - INFO - Successfully loaded 8 rows in 1 chunks
-2025-11-21 09:58:56,534 - __main__ - INFO - p42_warranty: Loaded 8 rows successfully.
-2025-11-21 09:58:57,535 - __main__ - INFO - [56/62] Processing payments_collections...
-2025-11-21 09:58:57,618 - __main__ - INFO - payments_collections: No data found, skipping.
-2025-11-21 09:58:58,619 - __main__ - INFO - [57/62] Processing payments_customerinvoice...
-2025-11-21 09:58:58,788 - __main__ - INFO - payments_customerinvoice: No data found, skipping.
-2025-11-21 09:58:59,789 - __main__ - INFO - [58/62] Processing payments_customerinvoiceline...
-2025-11-21 09:58:59,917 - __main__ - INFO - payments_customerinvoiceline: No data found, skipping.
-2025-11-21 09:59:00,918 - __main__ - INFO - [59/62] Processing payments_customerrecurringinvoice...
-2025-11-21 09:59:00,982 - __main__ - INFO - payments_customerrecurringinvoice: No data found, skipping.
-2025-11-21 09:59:01,983 - __main__ - INFO - [60/62] Processing payments_debicheck_mandates...
-2025-11-21 09:59:02,054 - __main__ - INFO - payments_debicheck_mandates: No data found, skipping.
-2025-11-21 09:59:03,056 - __main__ - INFO - [61/62] Processing payments_payment_methods...
-2025-11-21 09:59:03,196 - __main__ - INFO - payments_payment_methods: No data found, skipping.
-2025-11-21 09:59:04,197 - __main__ - INFO - [62/62] Processing public_holidays...
-2025-11-21 09:59:04,248 - __main__ - INFO - public_holidays: No data found, skipping.
-2025-11-21 09:59:05,776 - __main__ - INFO - Data load complete.
+2025-11-24 11:29:17,222 - __main__ - INFO - Establishing Snowflake connection
+2025-11-24 11:29:17,232 - __main__ - INFO - Establishing Snowflake connection
+2025-11-24 11:29:46,079 - __main__ - INFO - Fetching Snowflake private key from SSM
+2025-11-24 11:31:30,797 - __main__ - INFO - Establishing PostgreSQL connection
+2025-11-24 11:31:30,813 - __main__ - INFO - Connecting to RDS PostgreSQL at None:None
+2025-11-24 11:33:55,181 - __main__ - INFO - Establishing Snowflake connection
+2025-11-24 11:33:55,183 - __main__ - INFO - Establishing Snowflake connection
+2025-11-24 11:35:07,429 - __main__ - INFO - Fetching Snowflake private key from SSM
+2025-11-24 11:36:56,819 - __main__ - INFO - Establishing PostgreSQL connection
+2025-11-24 11:36:56,919 - __main__ - INFO - Connecting to RDS PostgreSQL at solara.crqioqgga31u.af-south-1.rds.amazonaws.com:5432
+2025-11-24 11:37:04,680 - __main__ - INFO - Found 62 tables in schema 'public'
+2025-11-24 11:37:04,681 - __main__ - INFO - Starting data extraction and loading
+2025-11-24 11:37:04,682 - __main__ - INFO - [1/62] Processing auditlog_logentry...
+2025-11-24 11:59:48,258 - __main__ - INFO - Loading 193971 rows to AUDITLOG_LOGENTRY
+2025-11-24 12:10:43,159 - __main__ - ERROR - Error loading to AUDITLOG_LOGENTRY: 253003: While putting file(s) there was an error: 'PUT with url b'https://sfc-ie-ds1-6-customer-stage.s3.amazonaws.com/92qe-s-iest0482/stages/c61fde8a-b2d9-4e68-924c-0b0bcb468d1c/file0.txt' failed for exceeding maximum retries.', this might be caused by your access to the blob storage provider, or by Snowflake.
+2025-11-24 12:10:43,260 - __main__ - INFO - Retrying AUDITLOG_LOGENTRY with smaller chunks
+2025-11-24 12:33:15,737 - __main__ - INFO - Establishing Snowflake connection
+2025-11-24 12:33:15,738 - __main__ - INFO - Establishing Snowflake connection
+2025-11-24 12:33:17,231 - __main__ - INFO - Fetching Snowflake private key from SSM
+2025-11-24 12:33:22,057 - __main__ - INFO - Establishing PostgreSQL connection
+2025-11-24 12:33:22,058 - __main__ - INFO - Connecting to RDS PostgreSQL at solara.crqioqgga31u.af-south-1.rds.amazonaws.com:5432
+2025-11-24 12:33:23,496 - __main__ - INFO - Found 62 tables in schema 'public'
+2025-11-24 12:33:23,497 - __main__ - INFO - Starting data extraction and loading
+2025-11-24 12:33:23,498 - __main__ - INFO - [1/62] Processing auditlog_logentry...
+2025-11-24 12:38:19,048 - __main__ - INFO - Loading 195015 rows to AUDITLOG_LOGENTRY
+2025-11-24 12:39:57,737 - __main__ - INFO - Successfully loaded 195015 rows in 1 chunks
+2025-11-24 12:39:57,737 - __main__ - INFO - auditlog_logentry: Loaded 195015 rows successfully.
+2025-11-24 12:39:58,738 - __main__ - INFO - [2/62] Processing auth_group...
+2025-11-24 12:39:59,046 - __main__ - INFO - Loading 11 rows to AUTH_GROUP
+2025-11-24 12:40:04,369 - __main__ - INFO - Successfully loaded 11 rows in 1 chunks
+2025-11-24 12:40:04,370 - __main__ - INFO - auth_group: Loaded 11 rows successfully.
+2025-11-24 12:40:05,371 - __main__ - INFO - [3/62] Processing auth_group_permissions...
+2025-11-24 12:40:05,510 - __main__ - INFO - Loading 442 rows to AUTH_GROUP_PERMISSIONS
+2025-11-24 12:40:10,008 - __main__ - INFO - Successfully loaded 442 rows in 1 chunks
+2025-11-24 12:40:10,010 - __main__ - INFO - auth_group_permissions: Loaded 442 rows successfully.
+2025-11-24 12:40:11,011 - __main__ - INFO - [4/62] Processing auth_permission...
+2025-11-24 12:40:11,235 - __main__ - INFO - Loading 236 rows to AUTH_PERMISSION
+2025-11-24 12:40:15,717 - __main__ - INFO - Successfully loaded 236 rows in 1 chunks
+2025-11-24 12:40:15,718 - __main__ - INFO - auth_permission: Loaded 236 rows successfully.
+2025-11-24 12:40:16,719 - __main__ - INFO - [5/62] Processing auth_user...
+2025-11-24 12:40:16,905 - __main__ - INFO - Loading 55 rows to AUTH_USER
+2025-11-24 12:40:21,365 - __main__ - INFO - Successfully loaded 55 rows in 1 chunks
+2025-11-24 12:40:21,366 - __main__ - INFO - auth_user: Loaded 55 rows successfully.
+2025-11-24 12:40:22,368 - __main__ - INFO - [6/62] Processing auth_user_groups...
+2025-11-24 12:40:22,492 - __main__ - INFO - Loading 91 rows to AUTH_USER_GROUPS
+2025-11-24 12:40:26,794 - __main__ - INFO - Successfully loaded 91 rows in 1 chunks
+2025-11-24 12:40:26,795 - __main__ - INFO - auth_user_groups: Loaded 91 rows successfully.
+2025-11-24 12:40:27,796 - __main__ - INFO - [7/62] Processing auth_user_user_permissions...
+2025-11-24 12:40:28,025 - __main__ - INFO - Loading 982 rows to AUTH_USER_USER_PERMISSIONS
+2025-11-24 12:40:32,322 - __main__ - INFO - Successfully loaded 982 rows in 1 chunks
+2025-11-24 12:40:32,322 - __main__ - INFO - auth_user_user_permissions: Loaded 982 rows successfully.
+2025-11-24 12:40:33,323 - __main__ - INFO - [8/62] Processing dealer_id...
+2025-11-24 12:40:33,448 - __main__ - INFO - Loading 1 rows to DEALER_ID
+2025-11-24 12:40:38,261 - __main__ - INFO - Successfully loaded 1 rows in 1 chunks
+2025-11-24 12:40:38,262 - __main__ - INFO - dealer_id: Loaded 1 rows successfully.
+2025-11-24 12:40:39,263 - __main__ - INFO - [9/62] Processing dealer_id2...
+2025-11-24 12:40:39,325 - __main__ - INFO - Loading 1 rows to DEALER_ID2
+2025-11-24 12:40:44,418 - __main__ - INFO - Successfully loaded 1 rows in 1 chunks
+2025-11-24 12:40:44,419 - __main__ - INFO - dealer_id2: Loaded 1 rows successfully.
+2025-11-24 12:40:45,420 - __main__ - INFO - [10/62] Processing django_admin_log...
+2025-11-24 12:40:45,634 - __main__ - INFO - Loading 99 rows to DJANGO_ADMIN_LOG
+2025-11-24 12:40:50,446 - __main__ - INFO - Successfully loaded 99 rows in 1 chunks
+2025-11-24 12:40:50,447 - __main__ - INFO - django_admin_log: Loaded 99 rows successfully.
+2025-11-24 12:40:51,448 - __main__ - INFO - [11/62] Processing django_content_type...
+2025-11-24 12:40:51,514 - __main__ - INFO - Loading 59 rows to DJANGO_CONTENT_TYPE
+2025-11-24 12:40:55,979 - __main__ - INFO - Successfully loaded 59 rows in 1 chunks
+2025-11-24 12:40:55,979 - __main__ - INFO - django_content_type: Loaded 59 rows successfully.
+2025-11-24 12:40:56,980 - __main__ - INFO - [12/62] Processing django_migrations...
+2025-11-24 12:40:57,107 - __main__ - INFO - Loading 143 rows to DJANGO_MIGRATIONS
+2025-11-24 12:41:01,813 - __main__ - INFO - Successfully loaded 143 rows in 1 chunks
+2025-11-24 12:41:01,813 - __main__ - INFO - django_migrations: Loaded 143 rows successfully.
+2025-11-24 12:41:02,815 - __main__ - INFO - [13/62] Processing django_session...
+2025-11-24 12:41:02,943 - __main__ - INFO - Loading 28 rows to DJANGO_SESSION
+2025-11-24 12:41:07,554 - __main__ - INFO - Successfully loaded 28 rows in 1 chunks
+2025-11-24 12:41:07,555 - __main__ - INFO - django_session: Loaded 28 rows successfully.
+2025-11-24 12:41:08,556 - __main__ - INFO - [14/62] Processing p42_applicationlead...
+2025-11-24 12:41:20,663 - __main__ - INFO - Loading 2001 rows to P42_APPLICATIONLEAD
+2025-11-24 12:41:34,277 - __main__ - INFO - Successfully loaded 2001 rows in 1 chunks
+2025-11-24 12:41:34,277 - __main__ - INFO - p42_applicationlead: Loaded 2001 rows successfully.
+2025-11-24 12:41:35,279 - __main__ - INFO - [15/62] Processing p42_applicationnotes...
+2025-11-24 12:41:35,413 - __main__ - INFO - Loading 42 rows to P42_APPLICATIONNOTES
+2025-11-24 12:41:40,536 - __main__ - INFO - Successfully loaded 42 rows in 1 chunks
+2025-11-24 12:41:40,537 - __main__ - INFO - p42_applicationnotes: Loaded 42 rows successfully.
+2025-11-24 12:41:41,538 - __main__ - INFO - [16/62] Processing p42_applications...
+2025-11-24 12:41:42,447 - __main__ - INFO - Loading 1011 rows to P42_APPLICATIONS
+2025-11-24 12:41:48,713 - __main__ - INFO - Successfully loaded 1011 rows in 1 chunks
+2025-11-24 12:41:48,714 - __main__ - INFO - p42_applications: Loaded 1011 rows successfully.
+2025-11-24 12:41:49,715 - __main__ - INFO - [17/62] Processing p42_attachmentscraperlog...
+2025-11-24 12:41:50,171 - __main__ - INFO - Loading 1012 rows to P42_ATTACHMENTSCRAPERLOG
+2025-11-24 12:41:54,651 - __main__ - INFO - Successfully loaded 1012 rows in 1 chunks
+2025-11-24 12:41:54,652 - __main__ - INFO - p42_attachmentscraperlog: Loaded 1012 rows successfully.
+2025-11-24 12:41:55,652 - __main__ - INFO - [18/62] Processing p42_businessentity...
+2025-11-24 12:41:55,779 - __main__ - INFO - Loading 1 rows to P42_BUSINESSENTITY
+2025-11-24 12:42:00,078 - __main__ - INFO - Successfully loaded 1 rows in 1 chunks
+2025-11-24 12:42:00,079 - __main__ - INFO - p42_businessentity: Loaded 1 rows successfully.
+2025-11-24 12:42:01,080 - __main__ - INFO - [19/62] Processing p42_chatconfig...
+2025-11-24 12:42:01,165 - __main__ - INFO - Loading 16 rows to P42_CHATCONFIG
+2025-11-24 12:42:05,301 - __main__ - INFO - Successfully loaded 16 rows in 1 chunks
+2025-11-24 12:42:05,302 - __main__ - INFO - p42_chatconfig: Loaded 16 rows successfully.
+2025-11-24 12:42:06,303 - __main__ - INFO - [20/62] Processing p42_claim...
+2025-11-24 12:42:06,432 - __main__ - INFO - Loading 3 rows to P42_CLAIM
+2025-11-24 12:42:10,849 - __main__ - INFO - Successfully loaded 3 rows in 1 chunks
+2025-11-24 12:42:10,850 - __main__ - INFO - p42_claim: Loaded 3 rows successfully.
+2025-11-24 12:42:11,851 - __main__ - INFO - [21/62] Processing p42_contract...
+2025-11-24 12:42:11,969 - __main__ - INFO - Dropping problematic struct column 'application_state' from p42_contract
+2025-11-24 12:42:12,002 - __main__ - INFO - Loading 36 rows to P42_CONTRACT
+2025-11-24 12:42:16,977 - __main__ - INFO - Successfully loaded 36 rows in 1 chunks
+2025-11-24 12:42:16,978 - __main__ - INFO - p42_contract: Loaded 36 rows successfully.
+2025-11-24 12:42:17,979 - __main__ - INFO - [22/62] Processing p42_contractsequence...
+2025-11-24 12:42:18,069 - __main__ - INFO - Loading 6 rows to P42_CONTRACTSEQUENCE
+2025-11-24 12:42:22,889 - __main__ - INFO - Successfully loaded 6 rows in 1 chunks
+2025-11-24 12:42:22,890 - __main__ - INFO - p42_contractsequence: Loaded 6 rows successfully.
+2025-11-24 12:42:23,890 - __main__ - INFO - [23/62] Processing p42_creditcheck...
+2025-11-24 12:42:54,515 - __main__ - ERROR - p42_creditcheck: Error - Execution failed on sql: SELECT * FROM public."p42_creditcheck"
+server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+
+unable to rollback
+2025-11-24 12:42:55,542 - __main__ - INFO - [24/62] Processing p42_customer...
+2025-11-24 12:42:55,573 - __main__ - ERROR - p42_customer: Error - connection already closed
+2025-11-24 12:42:56,589 - __main__ - INFO - [25/62] Processing p42_dealer...
+2025-11-24 12:42:56,591 - __main__ - ERROR - p42_dealer: Error - connection already closed
+2025-11-24 12:42:57,594 - __main__ - INFO - [26/62] Processing p42_dealersalesperson...
+2025-11-24 12:42:57,598 - __main__ - ERROR - p42_dealersalesperson: Error - connection already closed
+2025-11-24 12:42:58,599 - __main__ - INFO - [27/62] Processing p42_dealervehicles...
+2025-11-24 12:42:58,602 - __main__ - ERROR - p42_dealervehicles: Error - connection already closed
+2025-11-24 12:42:59,604 - __main__ - INFO - [28/62] Processing p42_document...
+2025-11-24 12:42:59,606 - __main__ - ERROR - p42_document: Error - connection already closed
+2025-11-24 12:43:00,606 - __main__ - INFO - [29/62] Processing p42_emailscraperlog...
+2025-11-24 12:43:00,608 - __main__ - ERROR - p42_emailscraperlog: Error - connection already closed
+2025-11-24 12:43:01,610 - __main__ - INFO - [30/62] Processing p42_entrancescoring...
+2025-11-24 12:43:01,611 - __main__ - ERROR - p42_entrancescoring: Error - connection already closed
+2025-11-24 12:43:02,613 - __main__ - INFO - [31/62] Processing p42_gmailcredential...
+2025-11-24 12:43:02,614 - __main__ - ERROR - p42_gmailcredential: Error - connection already closed
+2025-11-24 12:43:03,614 - __main__ - INFO - [32/62] Processing p42_incomingmessage...
+2025-11-24 12:43:03,615 - __main__ - ERROR - p42_incomingmessage: Error - connection already closed
+2025-11-24 12:43:04,616 - __main__ - INFO - [33/62] Processing p42_inspection...
+2025-11-24 12:43:04,618 - __main__ - ERROR - p42_inspection: Error - connection already closed
+2025-11-24 12:43:05,620 - __main__ - INFO - [34/62] Processing p42_kyccheck...
+2025-11-24 12:43:05,622 - __main__ - ERROR - p42_kyccheck: Error - connection already closed
+2025-11-24 12:43:06,624 - __main__ - INFO - [35/62] Processing p42_outgoingmessage...
+2025-11-24 12:43:06,626 - __main__ - ERROR - p42_outgoingmessage: Error - connection already closed
+2025-11-24 12:43:07,627 - __main__ - INFO - [36/62] Processing p42_prompt...
+2025-11-24 12:43:07,629 - __main__ - ERROR - p42_prompt: Error - connection already closed
+2025-11-24 12:43:08,630 - __main__ - INFO - [37/62] Processing p42_sagerequestlog...
+2025-11-24 12:43:08,632 - __main__ - ERROR - p42_sagerequestlog: Error - connection already closed
+2025-11-24 12:43:09,633 - __main__ - INFO - [38/62] Processing p42_salarydata...
+2025-11-24 12:43:09,637 - __main__ - ERROR - p42_salarydata: Error - connection already closed
+2025-11-24 12:43:10,639 - __main__ - INFO - [39/62] Processing p42_scoringmaxrentconfig...
+2025-11-24 12:43:10,643 - __main__ - ERROR - p42_scoringmaxrentconfig: Error - connection already closed
+2025-11-24 12:43:11,650 - __main__ - INFO - [40/62] Processing p42_scoringofferdecision...
+2025-11-24 12:43:11,654 - __main__ - ERROR - p42_scoringofferdecision: Error - connection already closed
+2025-11-24 12:43:12,655 - __main__ - INFO - [41/62] Processing p42_scoringresult...
+2025-11-24 12:43:12,657 - __main__ - ERROR - p42_scoringresult: Error - connection already closed
+2025-11-24 12:43:13,657 - __main__ - INFO - [42/62] Processing p42_scoringversions...
+2025-11-24 12:43:13,659 - __main__ - ERROR - p42_scoringversions: Error - connection already closed
+2025-11-24 12:43:14,660 - __main__ - INFO - [43/62] Processing p42_service...
+2025-11-24 12:43:14,663 - __main__ - ERROR - p42_service: Error - connection already closed
+2025-11-24 12:43:15,664 - __main__ - INFO - [44/62] Processing p42_signing...
+2025-11-24 12:43:15,666 - __main__ - ERROR - p42_signing: Error - connection already closed
+2025-11-24 12:43:16,666 - __main__ - INFO - [45/62] Processing p42_systemmessage...
+2025-11-24 12:43:16,668 - __main__ - ERROR - p42_systemmessage: Error - connection already closed
+2025-11-24 12:43:17,669 - __main__ - INFO - [46/62] Processing p42_task...
+2025-11-24 12:43:17,671 - __main__ - ERROR - p42_task: Error - connection already closed
+2025-11-24 12:43:18,673 - __main__ - INFO - [47/62] Processing p42_taskattachment...
+2025-11-24 12:43:18,675 - __main__ - ERROR - p42_taskattachment: Error - connection already closed
+2025-11-24 12:43:19,676 - __main__ - INFO - [48/62] Processing p42_taskcomment...
+2025-11-24 12:43:19,677 - __main__ - ERROR - p42_taskcomment: Error - connection already closed
+2025-11-24 12:43:20,679 - __main__ - INFO - [49/62] Processing p42_template...
+2025-11-24 12:43:20,681 - __main__ - ERROR - p42_template: Error - connection already closed
+2025-11-24 12:43:21,682 - __main__ - INFO - [50/62] Processing p42_trip...
+2025-11-24 12:43:21,684 - __main__ - ERROR - p42_trip: Error - connection already closed
+2025-11-24 12:43:22,686 - __main__ - INFO - [51/62] Processing p42_validation...
+2025-11-24 12:43:22,688 - __main__ - ERROR - p42_validation: Error - connection already closed
+2025-11-24 12:43:23,689 - __main__ - INFO - [52/62] Processing p42_vehicle...
+2025-11-24 12:43:23,691 - __main__ - ERROR - p42_vehicle: Error - connection already closed
+2025-11-24 12:43:24,692 - __main__ - INFO - [53/62] Processing p42_vehicledata...
+2025-11-24 12:43:24,695 - __main__ - ERROR - p42_vehicledata: Error - connection already closed
+2025-11-24 12:43:25,696 - __main__ - INFO - [54/62] Processing p42_vehiclemake...
+2025-11-24 12:43:25,698 - __main__ - ERROR - p42_vehiclemake: Error - connection already closed
+2025-11-24 12:43:26,699 - __main__ - INFO - [55/62] Processing p42_warranty...
+2025-11-24 12:43:26,702 - __main__ - ERROR - p42_warranty: Error - connection already closed
+2025-11-24 12:43:27,703 - __main__ - INFO - [56/62] Processing payments_collections...
+2025-11-24 12:43:27,705 - __main__ - ERROR - payments_collections: Error - connection already closed
+2025-11-24 12:43:28,707 - __main__ - INFO - [57/62] Processing payments_customerinvoice...
+2025-11-24 12:43:28,710 - __main__ - ERROR - payments_customerinvoice: Error - connection already closed
+2025-11-24 12:43:29,711 - __main__ - INFO - [58/62] Processing payments_customerinvoiceline...
+2025-11-24 12:43:29,713 - __main__ - ERROR - payments_customerinvoiceline: Error - connection already closed
+2025-11-24 12:43:30,714 - __main__ - INFO - [59/62] Processing payments_customerrecurringinvoice...
+2025-11-24 12:43:30,716 - __main__ - ERROR - payments_customerrecurringinvoice: Error - connection already closed
+2025-11-24 12:43:31,717 - __main__ - INFO - [60/62] Processing payments_debicheck_mandates...
+2025-11-24 12:43:31,718 - __main__ - ERROR - payments_debicheck_mandates: Error - connection already closed
+2025-11-24 12:43:32,720 - __main__ - INFO - [61/62] Processing payments_payment_methods...
+2025-11-24 12:43:32,722 - __main__ - ERROR - payments_payment_methods: Error - connection already closed
+2025-11-24 12:43:33,723 - __main__ - INFO - [62/62] Processing public_holidays...
+2025-11-24 12:43:33,725 - __main__ - ERROR - public_holidays: Error - connection already closed
+2025-11-24 12:43:34,726 - __main__ - WARNING - The following tables failed to load: p42_creditcheck, p42_customer, p42_dealer, p42_dealersalesperson, p42_dealervehicles, p42_document, p42_emailscraperlog, p42_entrancescoring, p42_gmailcredential, p42_incomingmessage, p42_inspection, p42_kyccheck, p42_outgoingmessage, p42_prompt, p42_sagerequestlog, p42_salarydata, p42_scoringmaxrentconfig, p42_scoringofferdecision, p42_scoringresult, p42_scoringversions, p42_service, p42_signing, p42_systemmessage, p42_task, p42_taskattachment, p42_taskcomment, p42_template, p42_trip, p42_validation, p42_vehicle, p42_vehicledata, p42_vehiclemake, p42_warranty, payments_collections, payments_customerinvoice, payments_customerinvoiceline, payments_customerrecurringinvoice, payments_debicheck_mandates, payments_payment_methods, public_holidays
+2025-11-24 12:43:34,727 - __main__ - INFO - Total failed tables: 40 out of 62
+2025-11-24 12:43:36,041 - __main__ - INFO - Data load complete.

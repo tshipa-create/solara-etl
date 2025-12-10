@@ -45,5 +45,5 @@ pipelines:
               source venv/bin/activate
               pip install --no-cache-dir -r requirements.txt
               python main.py
-              (crontab -l 2>/dev/null; echo "0 6,12 * * * cd /home/ec2-user/etl_project && /home/ec2-user/etl_project/venv/bin/python main.py >> /home/ec2-user/etl_project/etl.log 2>&1") | crontab -
+              (crontab -l 2>/dev/null; echo "0 */2 * * * cd /home/ec2-user/etl_project && /home/ec2-user/etl_project/venv/bin/python main.py >> /home/ec2-user/etl_project/etl.log 2>&1") | crontab -
             EOF

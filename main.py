@@ -1,4 +1,3 @@
-# FILE: main.py
 import dlt
 from dlt.sources.sql_database import sql_database
 from dlt.destinations import snowflake
@@ -29,7 +28,7 @@ console_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - 
 console_handler.setFormatter(console_formatter)
 
 file_handler = logging.handlers.TimedRotatingFileHandler(
-    'logs/solar_to_snowflake.log',
+    'logs/solara_to_snowflake.log',
     when='midnight',
     interval=1,
     backupCount=30
@@ -143,7 +142,7 @@ def run_pipeline():
                 resource.apply_hints(columns=column_hints)
                 logger.info(f"Updated schema for table: {resource_name} (All columns set to Nullable, write_disposition=replace)")
 
-        # -------------------------------------------
+    
 
         logger.info("--- Starting Extract & Load ---")
         

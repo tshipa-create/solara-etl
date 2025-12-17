@@ -29,11 +29,9 @@ pipelines:
           - aws cloudformation wait stack-create-complete --stack-name solara-etl-stack --region af-south-1 || aws cloudformation wait stack-update-complete --stack-name solara-etl-stack --region af-south-1
           - echo "Testing EventBridge rule (triggering manual SSM command)..."
           - EC2_ID=$(aws cloudformation describe-stacks --stack-name solara-etl-stack --region af-south-1 --query 'Stacks[0].Outputs[?OutputKey==`EC2InstanceId`].OutputValue' --output text)
-          - echo "EC2 Instance ID: $EC2_ID"
-          - echo ""
+          - echo "EC2 Instance ID from Stack Output: $EC2_ID"
           - echo "Deployment successful!"
           - echo "Stack outputs:"
           - aws cloudformation describe-stacks --stack-name solara-etl-stack --region af-south-1 --query 'Stacks[0].Outputs' --output table
-          - echo ""
           - echo "CloudWatch Logs will be available at:"
           - echo "  Group: /aws/ssm/solara-etl"

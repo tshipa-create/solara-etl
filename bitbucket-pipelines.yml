@@ -1,6 +1,6 @@
-# Use an image that comes with Python, pip, and AWS CLI pre-installed
-# to speed up the pipeline and reduce setup steps.
-image: atlassian/default-image:4
+# Use a Python image with pip pre-installed
+# Then install AWS CLI as needed in steps
+image: python:3.11
 
 definitions:
   caches:
@@ -18,10 +18,10 @@ pipelines:
 
     - step:
         name: Sync Code and Config to EC2
-        # This step is manual to prevent accidental code pushes to production.
-        # Change to `trigger: automatic` for continuous deployment.
-        trigger: manual
+      
+        trigger: automatic
         script:
+          - pip install awscli
           # Configure AWS credentials for fetching the SSH key
           - export AWS_REGION=af-south-1
 
@@ -56,7 +56,7 @@ pipelines:
         caches:
           - pip
         script:
-          - pip install boto3
+          - pip install boto3 awscli
           - export AWS_REGION=af-south-1
           - python deploy_lambda.py deploy
           - echo "Waiting for CloudFormation stack to complete..."

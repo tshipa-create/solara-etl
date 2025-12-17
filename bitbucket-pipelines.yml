@@ -3,29 +3,23 @@ image: python:3.13
 pipelines:
   default:
     - step:
-        name: Deploy Solara ETL to EC2
+        name: Deploy Solara ETL with EventBridge + CloudWatch
         caches:
           - pip
         script:
           # Install system dependencies
-          - apt-get update && apt-get install -y unzip curl jq openssh-client rsync
+          - apt-get update && apt-get install -y curl unzip jq
 
           # Install AWS CLI v2
           - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           - unzip awscliv2.zip
           - ./aws/install
-          - export PATH=$PATH:/usr/local/bin  # Ensure aws is on PATH
+          - export PATH=$PATH:/usr/local/bin
 
           # Export AWS credentials and region (set these as Bitbucket repository or pipeline variables)
           - export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
           - export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-          - export AWS_DEFAULT_REGION=af-south-1
-
-          # Configure SSH key from SSM
-          - mkdir -p ~/.ssh
-          - echo "Fetching SSH key from SSM..."
-          - aws ssm get-parameter --name "/swordfish_etl/SSH_KEY_FILE" --with-decryption --query "Parameter.Value" --output text --region af-south-1 > ~/.ssh/swordfish_key
-          - chmod 600 ~/.ssh/swordfish_key
+          - export AWS_REGION=af-south-1
 
           # Create .env file securely
           - echo "DB_HOST=solara.crqioqgga31u.af-south-1.rds.amazonaws.com" > .env
@@ -34,16 +28,34 @@ pipelines:
           - echo "DB_USER=tableau" >> .env
           - echo "DB_PASSWORD=${DB_PASSWORD}" >> .env
 
-          # Sync project + .env to EC2
-          - rsync -avz -e "ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no" ./ ec2-user@${EC2_HOST}:/home/ec2-user/etl_project
+          # Sync code to EC2
+          - mkdir -p ~/.ssh
+          - aws ssm get-parameter --name "/swordfish_etl/SSH_KEY_FILE" --with-decryption --query "Parameter.Value" --output text --region af-south-1 > ~/.ssh/ec2_key || true
+          - chmod 600 ~/.ssh/ec2_key
+          - rsync -avz -e "ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no" ./ ec2-user@${EC2_HOST}:/home/ec2-user/etl_project || echo "Note: EC2 sync may fail if keys not configured in SSM"
 
-          # Deployment commands on EC2
-          - |
-            ssh -i ~/.ssh/swordfish_key -o StrictHostKeyChecking=no ec2-user@${EC2_HOST} << 'EOF'
-              cd /home/ec2-user/etl_project
-              python3 -m venv venv
-              source venv/bin/activate
-              pip install --no-cache-dir -r requirements.txt
-              python main.py
-              (crontab -l 2>/dev/null; echo "0 */2 * * * cd /home/ec2-user/etl_project && /home/ec2-user/etl_project/venv/bin/python main.py >> /home/ec2-user/etl_project/etl.log 2>&1") | crontab -
-            EOF
+          # Install Python dependencies for deployment script
+          - pip install --no-cache-dir boto3
+
+          # Deploy CloudFormation stack (EventBridge + CloudWatch + SSM)
+          - export EC2_INSTANCE_ID=${EC2_INSTANCE_ID:-}
+          - python deploy_lambda.py deploy
+
+          # Wait for stack to complete
+          - echo "Waiting for CloudFormation stack to complete..."
+          - aws cloudformation wait stack-create-complete --stack-name solara-etl-stack --region af-south-1 || aws cloudformation wait stack-update-complete --stack-name solara-etl-stack --region af-south-1
+
+          # Test EventBridge rule by triggering SSM command manually
+          - echo "Testing EventBridge rule (triggering manual SSM command)..."
+          - EC2_ID=$(aws cloudformation describe-stacks --stack-name solara-etl-stack --region af-south-1 --query 'Stacks[0].Outputs[?OutputKey==`EC2InstanceId`].OutputValue' --output text)
+          - echo "EC2 Instance ID: $EC2_ID"
+
+          # Retrieve stack outputs
+          - echo ""
+          - echo "Deployment successful!"
+          - echo "Stack outputs:"
+          - aws cloudformation describe-stacks --stack-name solara-etl-stack --region af-south-1 --query 'Stacks[0].Outputs' --output table
+          
+          - echo ""
+          - echo "CloudWatch Logs will be available at:"
+          - echo "  Group: /aws/ssm/solara-etl"

@@ -1,0 +1,118 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for Solara ETL on EC2 with EventBridge and CloudWatch'
+
+Parameters:
+  EC2InstanceId:
+    Type: AWS::EC2::Instance::Id
+    Description: EC2 instance ID where ETL script is deployed
+
+  EventBridgeRuleName:
+    Type: String
+    Default: solara-etl-schedule
+    Description: Name of the EventBridge rule
+
+  ScheduleExpression:
+    Type: String
+    Default: 'cron(0 */2 * * ? *)'
+    Description: 'Cron expression for EventBridge schedule (default: every 2 hours)'
+
+  CloudWatchLogGroup:
+    Type: String
+    Default: /aws/ssm/solara-etl
+    Description: CloudWatch log group name for SSM
+
+  ScriptPath:
+    Type: String
+    Default: /home/ec2-user/etl_project/main.py
+    Description: Path to the Python script on EC2
+
+Resources:
+  SSMExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: solara-etl-ssm-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: InvokeSSMCommand
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'ssm:SendCommand'
+                Resource:
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:document/AWS-RunShellScript'
+                  - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/${EC2InstanceId}'
+        - PolicyName: SSMWriteCloudWatch
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${CloudWatchLogGroup}:*'
+
+  CloudWatchLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Ref CloudWatchLogGroup
+      RetentionInDays: 30
+
+  EventBridgeRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Ref EventBridgeRuleName
+      Description: 'EventBridge rule to trigger Solara ETL pipeline via SSM on EC2'
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Targets:
+        - Arn: !Sub 'arn:aws:ssm:${AWS::Region}::document/AWS-RunShellScript'
+          RoleArn: !GetAtt SSMExecutionRole.Arn
+          RetryPolicy:
+            MaximumEventAge: 3600
+            MaximumRetryAttempts: 2
+          RunCommandParameters:
+            RunCommandTargets:
+              - Key: 'aws:ec2instances:id'
+                Values:
+                  - !Ref EC2InstanceId
+            TimeoutSeconds: 600
+            CloudWatchOutputConfig:
+              CloudWatchLogGroupName: !Ref CloudWatchLogGroup
+              CloudWatchOutputEnabled: true
+            Parameters:
+              command:
+                - !Sub 'cd /home/ec2-user/etl_project && source venv/bin/activate && python main.py'
+
+Outputs:
+  EventBridgeRuleArn:
+    Description: ARN of the EventBridge rule
+    Value: !GetAtt EventBridgeRule.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-EventBridgeRuleArn'
+
+  EventBridgeRuleName:
+    Description: Name of the EventBridge rule
+    Value: !Ref EventBridgeRule
+    Export:
+      Name: !Sub '${AWS::StackName}-EventBridgeRuleName'
+
+  CloudWatchLogGroupName:
+    Description: CloudWatch log group name
+    Value: !Ref CloudWatchLogGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-LogGroup'
+
+  EC2InstanceId:
+    Description: EC2 instance that will run the ETL script
+    Value: !Ref EC2InstanceId
+    Export:
+      Name: !Sub '${AWS::StackName}-EC2Instance'

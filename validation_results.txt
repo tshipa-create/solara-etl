@@ -1,0 +1,252 @@
+================================================================================
+RECORD COUNT VALIDATION: PostgreSQL vs Snowflake
+================================================================================
+
+Found 65 tables in PostgreSQL
+
+PostgreSQL Source Counts:
+--------------------------------------------------------------------------------
+auditlog_logentry                        |     325749
+auth_group                               |         11
+auth_group_permissions                   |        455
+auth_permission                          |        248
+auth_user                                |         57
+auth_user_groups                         |         97
+auth_user_user_permissions               |        982
+dealer_id                                |          1
+dealer_id2                               |          1
+django_admin_log                         |        107
+django_content_type                      |         62
+django_migrations                        |        155
+django_session                           |         30
+p42_applicationauditlog                  |         12
+p42_applicationlead                      |       3236
+p42_applicationnotes                     |        192
+p42_applications                         |       1473
+p42_attachmentscraperlog                 |       1419
+p42_businessentity                       |          1
+p42_chatconfig                           |        164
+p42_claim                                |          3
+p42_contract                             |         41
+p42_contractsequence                     |          8
+p42_creditcheck                          |       2277
+p42_customer                             |       2883
+p42_dealer                               |         20
+p42_dealersalesperson                    |         27
+p42_dealervehicles                       |        156
+p42_document                             |        901
+p42_emailscraperlog                      |       6972
+p42_entrancescoring                      |       2483
+p42_gmailcredential                      |          1
+p42_incomingmessage                      |        313
+p42_inspection                           |          0
+p42_kyccheck                             |        110
+p42_outgoingmessage                      |        436
+p42_prompt                               |          1
+p42_sagerequestlog                       |       3131
+p42_salarydata                           |          0
+p42_scoringmaxrentconfig                 |          0
+p42_scoringofferdecision                 |          0
+p42_scoringresult                        |          0
+p42_scoringversions                      |          0
+p42_service                              |          0
+p42_signing                              |          0
+p42_systemmessage                        |         76
+p42_task                                 |         90
+p42_taskattachment                       |         20
+p42_taskcomment                          |        105
+p42_template                             |          2
+p42_trip                                 |      25985
+p42_userapplicationlead                  |        350
+p42_validation                           |          0
+p42_vehicle                              |         29
+p42_vehicleauditlog                      |          2
+p42_vehicledata                          |      58455
+p42_vehiclemake                          |         13
+p42_warranty                             |          8
+payments_collections                     |          0
+payments_customerinvoice                 |          0
+payments_customerinvoiceline             |          0
+payments_customerrecurringinvoice        |          0
+payments_debicheck_mandates              |          0
+payments_payment_methods                 |          0
+public_holidays                          |          0
+--------------------------------------------------------------------------------
+TOTAL:     439350
+
+Attempting Snowflake connection...
+Found credentials in shared credentials file: ~/.aws/credentials
+Connecting to Snowflake...
+Snowflake Connector for Python Version: 4.1.0, Python Version: 3.13.6, Platform: Windows-11-10.0.26200-SP0
+Connecting to GLOBAL Snowflake domain
+\u2713 Connected to Snowflake
+Failed to get count for P42_INSPECTION: 002003 (42S02): 01c11082-0308-83cc-0000-962d3276677e: SQL compilation error:
+Object 'PLANET42_LIVE_DB.ODS_SOLARA.P42_INSPECTION' does not exist or not authorized.
+Failed to get count for P42_SALARYDATA: 002003 (42S02): 01c11083-0308-8493-0000-962d32763cda: SQL compilation error:
+Object 'PLANET42_LIVE_DB.ODS_SOLARA.P42_SALARYDATA' does not exist or not authorized.
+Failed to get count for P42_SCORINGMAXRENTCONFIG: 002003 (42S02): 01c11083-0308-83cc-0000-962d3276678e: SQL compilation error:
+Object 'PLANET42_LIVE_DB.ODS_SOLARA.P42_SCORINGMAXRENTCONFIG' does not exist or not authorized.
+Failed to get count for P42_SCORINGOFFERDECISION: 002003 (42S02): 01c11083-0308-79b1-0000-962d32764afe: SQL compilation error:
+Object 'PLANET42_LIVE_DB.ODS_SOLARA.P42_SCORINGOFFERDECISION' does not exist or not authorized.
+Failed to get count for P42_SCORINGRESULT: 002003 (42S02): 01c11083-0308-8493-0000-962d32763cde: SQL compilation error:
+Object 'PLANET42_LIVE_DB.ODS_SOLARA.P42_SCORINGRESULT' does not exist or not authorized.
+Failed to get count for P42_SCORINGVERSIONS: 002003 (42S02): 01c11083-0308-7943-0000-962d327673b2: SQL compilation error:
+Object 'PLANET42_LIVE_DB.ODS_SOLARA.P42_SCORINGVERSIONS' does not exist or not authorized.
+Failed to get count for P42_SERVICE: 002003 (42S02): 01c11083-0308-83ac-0000-962d3276599e: SQL compilation error:
+Object 'PLANET42_LIVE_DB.ODS_SOLARA.P42_SERVICE' does not exist or not authorized.
+Failed to get count for P42_SIGNING: 002003 (42S02): 01c11083-0308-7943-0000-962d327673ba: SQL compilation error:
+Object 'PLANET42_LIVE_DB.ODS_SOLARA.P42_SIGNING' does not exist or not authorized.
+Failed to get count for P42_VALIDATION: 002003 (42S02): 01c11083-0308-81ef-0000-962d3276837e: SQL compilation error:
+Object 'PLANET42_LIVE_DB.ODS_SOLARA.P42_VALIDATION' does not exist or not authorized.
+Failed to get count for PAYMENTS_COLLECTIONS: 002003 (42S02): 01c11083-0308-7943-0000-962d327673c2: SQL compilation error:
+Object 'PLANET42_LIVE_DB.ODS_SOLARA.PAYMENTS_COLLECTIONS' does not exist or not authorized.
+Failed to get count for PAYMENTS_CUSTOMERINVOICE: 002003 (42S02): 01c11083-0308-79b1-0000-962d32764b1a: SQL compilation error:
+Object 'PLANET42_LIVE_DB.ODS_SOLARA.PAYMENTS_CUSTOMERINVOICE' does not exist or not authorized.
+Failed to get count for PAYMENTS_CUSTOMERINVOICELINE: 002003 (42S02): 01c11083-0308-83cc-0000-962d327667a6: SQL compilation error:
+Object 'PLANET42_LIVE_DB.ODS_SOLARA.PAYMENTS_CUSTOMERINVOICELINE' does not exist or not authorized.
+Failed to get count for PAYMENTS_CUSTOMERRECURRINGINVOICE: 002003 (42S02): 01c11083-0308-83ac-0000-962d327659ae: SQL compilation error:
+Object 'PLANET42_LIVE_DB.ODS_SOLARA.PAYMENTS_CUSTOMERRECURRINGINVOICE' does not exist or not authorized.
+Failed to get count for PAYMENTS_DEBICHECK_MANDATES: 002003 (42S02): 01c11083-0308-830e-0000-962d3276913e: SQL compilation error:
+Object 'PLANET42_LIVE_DB.ODS_SOLARA.PAYMENTS_DEBICHECK_MANDATES' does not exist or not authorized.
+Failed to get count for PAYMENTS_PAYMENT_METHODS: 002003 (42S02): 01c11083-0308-7943-0000-962d327673c6: SQL compilation error:
+Object 'PLANET42_LIVE_DB.ODS_SOLARA.PAYMENTS_PAYMENT_METHODS' does not exist or not authorized.
+Failed to get count for PUBLIC_HOLIDAYS: 002003 (42S02): 01c11083-0308-8493-0000-962d32763cee: SQL compilation error:
+Object 'PLANET42_LIVE_DB.ODS_SOLARA.PUBLIC_HOLIDAYS' does not exist or not authorized.
+
+Snowflake Target Counts:
+--------------------------------------------------------------------------------
+\u2717 auditlog_logentry                        | PG:     325749 | SF: 0         
+\u2717 auth_group                               | PG:         11 | SF: 0         
+\u2717 auth_group_permissions                   | PG:        455 | SF: 0         
+\u2717 auth_permission                          | PG:        248 | SF: 0         
+\u2717 auth_user                                | PG:         57 | SF: 0         
+\u2717 auth_user_groups                         | PG:         97 | SF: 0         
+\u2717 auth_user_user_permissions               | PG:        982 | SF: 0         
+\u2717 dealer_id                                | PG:          1 | SF: 0         
+\u2717 dealer_id2                               | PG:          1 | SF: 0         
+\u2717 django_admin_log                         | PG:        107 | SF: 0         
+\u2717 django_content_type                      | PG:         62 | SF: 0         
+\u2717 django_migrations                        | PG:        155 | SF: 0         
+\u2717 django_session                           | PG:         30 | SF: 0         
+\u2717 p42_applicationauditlog                  | PG:         12 | SF: 0         
+\u2717 p42_applicationlead                      | PG:       3236 | SF: 0         
+\u2717 p42_applicationnotes                     | PG:        192 | SF: 0         
+\u2717 p42_applications                         | PG:       1473 | SF: 0         
+\u2717 p42_attachmentscraperlog                 | PG:       1419 | SF: 0         
+\u2717 p42_businessentity                       | PG:          1 | SF: 0         
+\u2717 p42_chatconfig                           | PG:        164 | SF: 0         
+\u2717 p42_claim                                | PG:          3 | SF: 0         
+\u2717 p42_contract                             | PG:         41 | SF: 0         
+\u2717 p42_contractsequence                     | PG:          8 | SF: 0         
+\u2717 p42_creditcheck                          | PG:       2277 | SF: 0         
+\u2717 p42_customer                             | PG:       2883 | SF: 0         
+\u2717 p42_dealer                               | PG:         20 | SF: 0         
+\u2717 p42_dealersalesperson                    | PG:         27 | SF: 0         
+\u2717 p42_dealervehicles                       | PG:        156 | SF: 0         
+\u2717 p42_document                             | PG:        901 | SF: 0         
+\u2717 p42_emailscraperlog                      | PG:       6972 | SF: 0         
+\u2717 p42_entrancescoring                      | PG:       2483 | SF: 0         
+\u2717 p42_gmailcredential                      | PG:          1 | SF: 0         
+\u2717 p42_incomingmessage                      | PG:        313 | SF: 0         
+\u2717 p42_inspection                           | PG:          0 | SF: NOT FOUND 
+\u2717 p42_kyccheck                             | PG:        110 | SF: 0         
+\u2717 p42_outgoingmessage                      | PG:        436 | SF: 0         
+\u2717 p42_prompt                               | PG:          1 | SF: 0         
+\u2717 p42_sagerequestlog                       | PG:       3131 | SF: 0         
+\u2717 p42_salarydata                           | PG:          0 | SF: NOT FOUND 
+\u2717 p42_scoringmaxrentconfig                 | PG:          0 | SF: NOT FOUND 
+\u2717 p42_scoringofferdecision                 | PG:          0 | SF: NOT FOUND 
+\u2717 p42_scoringresult                        | PG:          0 | SF: NOT FOUND 
+\u2717 p42_scoringversions                      | PG:          0 | SF: NOT FOUND 
+\u2717 p42_service                              | PG:          0 | SF: NOT FOUND 
+\u2717 p42_signing                              | PG:          0 | SF: NOT FOUND 
+\u2717 p42_systemmessage                        | PG:         76 | SF: 0         
+\u2717 p42_task                                 | PG:         90 | SF: 0         
+\u2717 p42_taskattachment                       | PG:         20 | SF: 0         
+\u2717 p42_taskcomment                          | PG:        105 | SF: 0         
+\u2717 p42_template                             | PG:          2 | SF: 0         
+\u2717 p42_trip                                 | PG:      25985 | SF: 0         
+\u2717 p42_userapplicationlead                  | PG:        350 | SF: 0         
+\u2717 p42_validation                           | PG:          0 | SF: NOT FOUND 
+\u2717 p42_vehicle                              | PG:         29 | SF: 0         
+\u2717 p42_vehicleauditlog                      | PG:          2 | SF: 0         
+\u2717 p42_vehicledata                          | PG:      58455 | SF: 0         
+\u2717 p42_vehiclemake                          | PG:         13 | SF: 0         
+\u2717 p42_warranty                             | PG:          8 | SF: 0         
+\u2717 payments_collections                     | PG:          0 | SF: NOT FOUND 
+\u2717 payments_customerinvoice                 | PG:          0 | SF: NOT FOUND 
+\u2717 payments_customerinvoiceline             | PG:          0 | SF: NOT FOUND 
+\u2717 payments_customerrecurringinvoice        | PG:          0 | SF: NOT FOUND 
+\u2717 payments_debicheck_mandates              | PG:          0 | SF: NOT FOUND 
+\u2717 payments_payment_methods                 | PG:          0 | SF: NOT FOUND 
+\u2717 public_holidays                          | PG:          0 | SF: NOT FOUND 
+--------------------------------------------------------------------------------
+TOTALS: PostgreSQL:     439350 | Snowflake:          0
+
+\u26a0\ufe0f  FOUND 65 MISMATCHES:
+
+  auditlog_logentry                        | Diff:    -325749
+  auth_group                               | Diff:        -11
+  auth_group_permissions                   | Diff:       -455
+  auth_permission                          | Diff:       -248
+  auth_user                                | Diff:        -57
+  auth_user_groups                         | Diff:        -97
+  auth_user_user_permissions               | Diff:       -982
+  dealer_id                                | Diff:         -1
+  dealer_id2                               | Diff:         -1
+  django_admin_log                         | Diff:       -107
+  django_content_type                      | Diff:        -62
+  django_migrations                        | Diff:       -155
+  django_session                           | Diff:        -30
+  p42_applicationauditlog                  | Diff:        -12
+  p42_applicationlead                      | Diff:      -3236
+  p42_applicationnotes                     | Diff:       -192
+  p42_applications                         | Diff:      -1473
+  p42_attachmentscraperlog                 | Diff:      -1419
+  p42_businessentity                       | Diff:         -1
+  p42_chatconfig                           | Diff:       -164
+  p42_claim                                | Diff:         -3
+  p42_contract                             | Diff:        -41
+  p42_contractsequence                     | Diff:         -8
+  p42_creditcheck                          | Diff:      -2277
+  p42_customer                             | Diff:      -2883
+  p42_dealer                               | Diff:        -20
+  p42_dealersalesperson                    | Diff:        -27
+  p42_dealervehicles                       | Diff:       -156
+  p42_document                             | Diff:       -901
+  p42_emailscraperlog                      | Diff:      -6972
+  p42_entrancescoring                      | Diff:      -2483
+  p42_gmailcredential                      | Diff:         -1
+  p42_incomingmessage                      | Diff:       -313
+  p42_inspection                           | Diff:         +0
+  p42_kyccheck                             | Diff:       -110
+  p42_outgoingmessage                      | Diff:       -436
+  p42_prompt                               | Diff:         -1
+  p42_sagerequestlog                       | Diff:      -3131
+  p42_salarydata                           | Diff:         +0
+  p42_scoringmaxrentconfig                 | Diff:         +0
+  p42_scoringofferdecision                 | Diff:         +0
+  p42_scoringresult                        | Diff:         +0
+  p42_scoringversions                      | Diff:         +0
+  p42_service                              | Diff:         +0
+  p42_signing                              | Diff:         +0
+  p42_systemmessage                        | Diff:        -76
+  p42_task                                 | Diff:        -90
+  p42_taskattachment                       | Diff:        -20
+  p42_taskcomment                          | Diff:       -105
+  p42_template                             | Diff:         -2
+  p42_trip                                 | Diff:     -25985
+  p42_userapplicationlead                  | Diff:       -350
+  p42_validation                           | Diff:         +0
+  p42_vehicle                              | Diff:        -29
+  p42_vehicleauditlog                      | Diff:         -2
+  p42_vehicledata                          | Diff:     -58455
+  p42_vehiclemake                          | Diff:        -13
+  p42_warranty                             | Diff:         -8
+  payments_collections                     | Diff:         +0
+  payments_customerinvoice                 | Diff:         +0
+  payments_customerinvoiceline             | Diff:         +0
+  payments_customerrecurringinvoice        | Diff:         +0
+  payments_debicheck_mandates              | Diff:         +0
+  payments_payment_methods                 | Diff:         +0
+  public_holidays                          | Diff:         +0

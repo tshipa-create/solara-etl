@@ -5,47 +5,52 @@ import boto3
 import os
 import urllib.parse
 import logging
-import logging.handlers
 import sys
 import datetime
 from dotenv import load_dotenv
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 
-# --- IMPORT FOR UPPERCASE ---
 import upper_naming
-# -------------------------------------
 
-# 1. SETUP LOGGING
-os.makedirs('logs', exist_ok=True)
+def setup_logging():
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    console_handler.setFormatter(console_formatter)
+    logger.addHandler(console_handler)
+    
+    try:
+        import watchtower
+        logs_group = os.getenv('CLOUDWATCH_LOG_GROUP', '/aws/lambda/solara-etl')
+        logs_stream = os.getenv('CLOUDWATCH_LOG_STREAM', 'etl-pipeline')
+        
+        cloudwatch_handler = watchtower.CloudWatchLogHandler(
+            log_group=logs_group,
+            stream_name=logs_stream,
+            boto3_client=boto3.client('logs')
+        )
+        cloudwatch_handler.setLevel(logging.INFO)
+        cloudwatch_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        cloudwatch_handler.setFormatter(cloudwatch_formatter)
+        logger.addHandler(cloudwatch_handler)
+    except ImportError:
+        logger.warning("watchtower not installed; CloudWatch logging disabled")
+    except Exception as e:
+        logger.warning(f"Failed to setup CloudWatch logging: {e}")
+    
+    logging.getLogger("boto3").setLevel(logging.WARNING)
+    logging.getLogger("botocore").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("dlt").setLevel(logging.DEBUG)
+    logging.getLogger("dlt.load").setLevel(logging.DEBUG)
+    
+    return logger
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
-console_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-console_handler.setFormatter(console_formatter)
-
-file_handler = logging.handlers.TimedRotatingFileHandler(
-    'logs/solara_to_snowflake.log',
-    when='midnight',
-    interval=1,
-    backupCount=30
-)
-file_handler.setLevel(logging.INFO)
-file_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-file_handler.setFormatter(file_formatter)
-
-logger.addHandler(console_handler)
-logger.addHandler(file_handler)
-
-
-# Silence noisy libraries
-logging.getLogger("boto3").setLevel(logging.WARNING)
-logging.getLogger("botocore").setLevel(logging.WARNING)
-logging.getLogger("urllib3").setLevel(logging.WARNING)
-logging.getLogger("dlt").setLevel(logging.INFO)
+logger = setup_logging()
 
 load_dotenv()
 
@@ -116,44 +121,97 @@ def run_pipeline():
 
         # --- DYNAMIC TRANSFORMATION & SCHEMA FIX ---
         
-        # Define the timestamp adder function
+        load_timestamp = datetime.datetime.now(datetime.timezone.utc)
+        
+        row_counts = {}
+        rejected_rows = {}
+        
         def add_timestamp(row):
-            row["LOAD_AT_TS_UTC"] = datetime.datetime.now(datetime.timezone.utc)
-            return row
+            try:
+                current_table = row.get('_table_name', 'unknown')
+                if current_table not in row_counts:
+                    row_counts[current_table] = 0
+                row_counts[current_table] += 1
+                
+                row["LOAD_AT_TS_UTC"] = load_timestamp
+                return row
+            except Exception as e:
+                current_table = row.get('_table_name', 'unknown') if isinstance(row, dict) else 'unknown'
+                if current_table not in rejected_rows:
+                    rejected_rows[current_table] = []
+                rejected_rows[current_table].append({
+                    'row': str(row)[:200],
+                    'error': str(e)[:200]
+                })
+                logger.error(f"Failed to add timestamp to row from {current_table}: {e}", exc_info=True)
+                raise
 
         logger.info("--- Inspecting Source Schema & Applying Fixes ---")
 
-        # Iterate through every table (resource) found in the Postgres source
         for resource_name, resource in source.resources.items():
+            logger.info(f"Processing table: {resource_name}")
             
-            # 1. Add the LOAD_AT_TS_UTC to the data stream
             resource.add_map(add_timestamp)
             
-            # 2. Set write_disposition to "replace" to force table recreation with nullable columns
-            resource.write_disposition = "replace"
+            resource.write_disposition = "append"
             
-            # 3. Apply hints to make EVERY column nullable
-            # This ensures columns are created as NULLABLE in Snowflake
             if resource.columns:
                 column_hints = {
                     col_name: {"nullable": True} 
                     for col_name in resource.columns.keys()
                 }
                 resource.apply_hints(columns=column_hints)
-                logger.info(f"Updated schema for table: {resource_name} (All columns set to Nullable, write_disposition=replace)")
+                logger.info(f"Configured {resource_name}: append mode, all columns nullable")
 
     
 
         logger.info("--- Starting Extract & Load ---")
         
-        # Run pipeline (tables will be recreated due to write_disposition="replace" set on resources)
         info = pipeline.run(source, loader_file_format="csv")
         
         logger.info("--- PIPELINE COMPLETED ---")
-        logger.info(info)
+        logger.info(f"Pipeline load info: {info}")
+        
+        logger.info("\n=== ROW PROCESSING SUMMARY ===")
+        total_processed = sum(row_counts.values())
+        logger.info(f"Total rows processed: {total_processed}")
+        for table_name in sorted(row_counts.keys()):
+            logger.info(f"  {table_name:40} | {row_counts[table_name]:8} rows processed")
+        
+        if rejected_rows:
+            logger.warning("\n=== REJECTED ROWS ===")
+            for table_name in sorted(rejected_rows.keys()):
+                logger.warning(f"{table_name}: {len(rejected_rows[table_name])} rejected rows")
+                for i, rejected in enumerate(rejected_rows[table_name][:3]):
+                    logger.warning(f"  [{i+1}] Error: {rejected['error']}")
+        
+        if info.loads_ids:
+            logger.info("\n=== LOAD SUMMARY ===")
+            for load_id in info.loads_ids:
+                logger.info(f"Load ID: {load_id}")
+        
+        if info.has_failed_jobs:
+            logger.warning("Pipeline completed with failed jobs")
+        else:
+            logger.info("All jobs completed successfully")
         
     except Exception as e:
         logger.critical("Pipeline Crashed!", exc_info=True)
+
+def lambda_handler(event, context):
+    try:
+        logger.info(f"ETL Pipeline triggered by EventBridge: {event}")
+        run_pipeline()
+        return {
+            "statusCode": 200,
+            "body": "ETL pipeline completed successfully"
+        }
+    except Exception as e:
+        logger.error(f"ETL Pipeline failed: {str(e)}", exc_info=True)
+        return {
+            "statusCode": 500,
+            "body": f"ETL pipeline failed: {str(e)}"
+        }
 
 if __name__ == "__main__":
     run_pipeline()

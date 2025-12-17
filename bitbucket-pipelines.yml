@@ -21,6 +21,7 @@ pipelines:
       
         trigger: automatic
         script:
+          - apt-get update && apt-get install -y rsync openssh-client
           - pip install awscli
           # Configure AWS credentials for fetching the SSH key
           - export AWS_REGION=af-south-1

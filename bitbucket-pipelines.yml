@@ -53,7 +53,7 @@ pipelines:
 
     - step:
         name: Deploy Infrastructure & Verify
-        trigger: manual
+        trigger: automatic
         caches:
           - pip
         script:

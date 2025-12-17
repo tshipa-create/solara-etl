@@ -60,7 +60,7 @@ Resources:
                   - 'logs:PutLogEvents'
                 Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${CloudWatchLogGroup}:*'
 
-  CloudWatchLogGroup:
+  SolaraETLCloudWatchLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Ref CloudWatchLogGroup
@@ -107,7 +107,7 @@ Outputs:
 
   CloudWatchLogGroupName:
     Description: CloudWatch log group name
-    Value: !Ref CloudWatchLogGroup
+    Value: !Ref SolaraETLCloudWatchLogGroup
     Export:
       Name: !Sub '${AWS::StackName}-LogGroup'
 

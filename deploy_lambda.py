@@ -28,6 +28,20 @@ def get_ec2_instance_id(region):
     
     raise ValueError("Could not determine EC2_INSTANCE_ID. Set EC2_INSTANCE_ID environment variable or run on EC2")
 
+def get_stack_events(cf, stack_name):
+    try:
+        events = cf.describe_stack_events(StackName=stack_name)['StackEvents']
+        print("\nStack Events:")
+        for event in reversed(events):
+            status = event['ResourceStatus']
+            reason = event.get('ResourceStatusReason', '')
+            resource = event['LogicalResourceId']
+            print(f"  {resource}: {status}")
+            if reason:
+                print(f"    Reason: {reason}")
+    except Exception as e:
+        print(f"Could not retrieve stack events: {e}")
+
 def deploy_cloudformation(stack_name, template_file, parameters=None, region='af-south-1'):
     cf = boto3.client('cloudformation', region_name=region)
     
@@ -64,6 +78,8 @@ def deploy_cloudformation(stack_name, template_file, parameters=None, region='af
             print(f"Create initiated: {response['StackId']}")
         else:
             raise
+    
+    get_stack_events(cf, stack_name)
 
 def main():
     region = os.getenv('AWS_REGION', 'af-south-1')

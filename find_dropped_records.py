@@ -60,23 +60,105 @@ def get_postgres_tables():
     conn.close()
     return tables
 
-def get_table_pkey(conn, table_name):
+def get_table_pkey(table_name):
+    conn = get_postgres_connection()
     cur = conn.cursor()
     try:
         cur.execute(f"""
             SELECT column_name FROM information_schema.constraint_column_usage 
-            WHERE table_name = '{table_name}' 
+            WHERE table_name = %s 
             AND constraint_name IN (
                 SELECT constraint_name FROM information_schema.table_constraints 
-                WHERE table_name = '{table_name}' AND constraint_type = 'PRIMARY KEY'
+                WHERE table_name = %s AND constraint_type = 'PRIMARY KEY'
             ) LIMIT 1
-        """)
+        """, (table_name, table_name))
         result = cur.fetchone()
+        if result:
+            pk = result[0]
+        else:
+            cur.execute(f"SELECT column_name FROM information_schema.columns WHERE table_name = %s LIMIT 1", (table_name,))
+            result = cur.fetchone()
+            pk = result[0] if result else None
         cur.close()
-        return result[0] if result else 'id'
-    except:
+        conn.close()
+        return pk
+    except Exception as e:
+        logger.warning(f"Could not find PK for {table_name}: {e}")
         cur.close()
-        return 'id'
+        conn.close()
+        return None
+
+def get_pg_count(table_name):
+    try:
+        conn = get_postgres_connection()
+        cur = conn.cursor()
+        cur.execute(f'SELECT COUNT(*) FROM public."{table_name}"')
+        count = cur.fetchone()[0]
+        cur.close()
+        conn.close()
+        return count
+    except Exception as e:
+        logger.warning(f"Error counting {table_name}: {e}")
+        return 0
+
+def get_sf_count(table_name, sf_conn):
+    try:
+        cur = sf_conn.cursor()
+        cur.execute(f'SELECT COUNT(*) FROM "ODS_SOLARA"."{table_name.upper()}"')
+        count = cur.fetchone()[0]
+        cur.close()
+        return count
+    except Exception as e:
+        logger.warning(f"Error counting {table_name} in Snowflake: {e}")
+        return 0
+
+def get_missing_ids(table_name, pk_col):
+    if not pk_col:
+        return []
+    try:
+        conn = get_postgres_connection()
+        cur = conn.cursor()
+        cur.execute(f'SELECT {pk_col}::text FROM public."{table_name}" ORDER BY {pk_col}')
+        pg_ids = set(row[0] for row in cur.fetchall())
+        cur.close()
+        conn.close()
+        return pg_ids
+    except Exception as e:
+        logger.warning(f"Could not get IDs from {table_name}: {e}")
+        return set()
+
+def get_sf_ids(table_name, pk_col, sf_conn):
+    if not pk_col:
+        return set()
+    try:
+        cur = sf_conn.cursor()
+        cur.execute(f'SELECT {pk_col.upper()}::text FROM "ODS_SOLARA"."{table_name.upper()}" ORDER BY {pk_col.upper()}')
+        sf_ids = set(row[0] for row in cur.fetchall())
+        cur.close()
+        return sf_ids
+    except Exception as e:
+        logger.warning(f"Could not get IDs from {table_name} in Snowflake: {e}")
+        return set()
+
+def analyze_sequential_gaps(missing_ids):
+    if not missing_ids:
+        return None
+    missing_nums = sorted([int(x) for x in missing_ids if x.isdigit()])
+    if not missing_nums:
+        return None
+    
+    gaps = []
+    start = missing_nums[0]
+    end = missing_nums[0]
+    for num in missing_nums[1:]:
+        if num == end + 1:
+            end = num
+        else:
+            gaps.append((start, end))
+            start = num
+            end = num
+    gaps.append((start, end))
+    return gaps
 
 def main():
     logger.info("=" * 80)
@@ -84,7 +166,6 @@ def main():
     logger.info("=" * 80)
     
     tables = get_postgres_tables()
-    pg_conn = get_postgres_connection()
     sf_conn = get_snowflake_connection()
     
     total_pg = 0
@@ -93,20 +174,9 @@ def main():
     dropped_details = {}
     
     for table_name in tables:
-        pk_col = get_table_pkey(pg_conn, table_name)
-        
-        pg_cur = pg_conn.cursor()
-        pg_cur.execute(f"SELECT COUNT(*) FROM public.\"{table_name}\"")
-        pg_count = pg_cur.fetchone()[0]
-        pg_cur.close()
-        
-        sf_cur = sf_conn.cursor()
-        try:
-            sf_cur.execute(f'SELECT COUNT(*) FROM "ODS_SOLARA"."{table_name.upper()}"')
-            sf_count = sf_cur.fetchone()[0]
-        except:
-            sf_count = 0
-        sf_cur.close()
+        pk_col = get_table_pkey(table_name)
+        pg_count = get_pg_count(table_name)
+        sf_count = get_sf_count(table_name, sf_conn)
         
         total_pg += pg_count
         total_sf += sf_count
@@ -117,51 +187,49 @@ def main():
         if dropped > 0:
             pct = dropped / pg_count * 100 if pg_count > 0 else 0
             logger.info(f"\n{table_name}:")
-            logger.info(f"  PostgreSQL: {pg_count} records")
-            logger.info(f"  Snowflake:  {sf_count} records")
-            logger.info(f"  DROPPED:    {dropped} records ({pct:.2f}%)")
+            logger.info(f"  PostgreSQL: {pg_count:8} | Snowflake: {sf_count:8} | DROPPED: {dropped:6} ({pct:.2f}%)")
             
-            pg_ids_cur = pg_conn.cursor()
-            sf_ids_cur = sf_conn.cursor()
-            
-            try:
-                pg_ids_cur.execute(f"SELECT {pk_col}::text FROM public.\"{table_name}\" ORDER BY {pk_col}")
-                pg_ids = set(row[0] for row in pg_ids_cur.fetchall())
-                
-                sf_ids_cur.execute(f'SELECT {pk_col.upper()}::text FROM "ODS_SOLARA"."{table_name.upper()}" ORDER BY {pk_col.upper()}')
-                sf_ids = set(row[0] for row in sf_ids_cur.fetchall())
-                
+            if pk_col:
+                pg_ids = get_missing_ids(table_name, pk_col)
+                sf_ids = get_sf_ids(table_name, pk_col, sf_conn)
                 missing_ids = pg_ids - sf_ids
+                
                 dropped_details[table_name] = {
                     'dropped_count': len(missing_ids),
-                    'sample_ids': sorted(list(missing_ids))[:10]
+                    'sample_ids': sorted(list(missing_ids))[:10],
+                    'all_missing': missing_ids
                 }
                 
                 if len(missing_ids) <= 10:
                     logger.info(f"  Missing IDs: {sorted(list(missing_ids))}")
                 else:
-                    logger.info(f"  Missing IDs (first 10): {sorted(list(missing_ids))[:10]}")
-            except Exception as e:
-                logger.warning(f"  Could not retrieve IDs: {e}")
-            finally:
-                pg_ids_cur.close()
-                sf_ids_cur.close()
+                    gaps = analyze_sequential_gaps(missing_ids)
+                    if gaps and len(gaps) <= 5:
+                        logger.info(f"  Missing ID ranges:")
+                        for start, end in gaps:
+                            if start == end:
+                                logger.info(f"    {start}")
+                            else:
+                                logger.info(f"    {start}-{end} ({end-start+1} records)")
+                    else:
+                        logger.info(f"  Missing IDs (first 10): {sorted(list(missing_ids))[:10]}")
+            else:
+                logger.info(f"  Could not determine primary key")
     
-    pg_conn.close()
     sf_conn.close()
     
     logger.info("\n" + "=" * 80)
     logger.info("SUMMARY")
     logger.info("=" * 80)
-    logger.info(f"PostgreSQL Total: {total_pg}")
-    logger.info(f"Snowflake Total:  {total_sf}")
-    logger.info(f"Total Dropped:    {total_dropped} ({total_dropped/total_pg*100:.2f}%)")
+    logger.info(f"PostgreSQL Total: {total_pg:8}")
+    logger.info(f"Snowflake Total:  {total_sf:8}")
+    logger.info(f"Total Dropped:    {total_dropped:8} ({total_dropped/total_pg*100:.2f}%)")
     
     if dropped_details:
         logger.info("\nTables with Drops (sorted by impact):")
         for table in sorted(dropped_details.keys(), key=lambda t: dropped_details[t]['dropped_count'], reverse=True):
             detail = dropped_details[table]
-            logger.info(f"  {table}: {detail['dropped_count']} missing")
+            logger.info(f"  {table:40} | {detail['dropped_count']:6} records")
 
 if __name__ == "__main__":
     main()

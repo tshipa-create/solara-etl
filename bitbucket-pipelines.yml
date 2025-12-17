@@ -1,37 +1,66 @@
-image: python:3.13
+# Use an image that comes with Python, pip, and AWS CLI pre-installed
+# to speed up the pipeline and reduce setup steps.
+image: atlassian/default-image:4
+
+definitions:
+  caches:
+    pip: ~/.cache/pip
 
 pipelines:
   default:
     - step:
-        name: Deploy Solara ETL
+        name: Validate CloudFormation Template
+        caches:
+          - pip
         script:
-          - apt-get update && apt-get install -y curl unzip jq
-          - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          - unzip awscliv2.zip
-          - ./aws/install
-          - export PATH=$PATH:/usr/local/bin
-          - export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-          - export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+          - pip install pyyaml
+          - python validate_yaml.py
+
+    - step:
+        name: Sync Code and Config to EC2
+        # This step is manual to prevent accidental code pushes to production.
+        # Change to `trigger: automatic` for continuous deployment.
+        trigger: manual
+        script:
+          # Configure AWS credentials for fetching the SSH key
           - export AWS_REGION=af-south-1
-          - echo "DB_HOST=solara.crqioqgga31u.af-south-1.rds.amazonaws.com" > .env
-          - echo "DB_PORT=5432" >> .env
-          - echo "DB_NAME=solara" >> .env
-          - echo "DB_USER=tableau" >> .env
-          - echo "DB_PASSWORD=${DB_PASSWORD}" >> .env
+
+          # Setup SSH key for rsync
           - mkdir -p ~/.ssh
           - aws ssm get-parameter --name "/swordfish_etl/SSH_KEY_FILE" --with-decryption --query "Parameter.Value" --output text --region af-south-1 > ~/.ssh/ec2_key || true
-          - chmod 600 ~/.ssh/ec2_key
-          - rsync -avz -e "ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no" ./ ec2-user@${EC2_HOST}:/home/ec2-user/etl_project || echo "Note: EC2 sync may fail if keys not configured in SSM"
-          - pip install --no-cache-dir boto3
-          - export EC2_INSTANCE_ID=${EC2_INSTANCE_ID:-}
+          - |
+            if [ ! -s ~/.ssh/ec2_key ]; then
+              echo "Error: SSH key from SSM is empty. Cannot connect to EC2."
+              exit 1
+            fi
+          - chmod 400 ~/.ssh/ec2_key
+
+          # Create the .env file locally before syncing
+          - |
+            cat > .env <<EOF
+            DB_HOST=solara.crqioqgga31u.af-south-1.rds.amazonaws.com
+            DB_PORT=5432
+            DB_NAME=solara
+            DB_USER=tableau
+            DB_PASSWORD=${DB_PASSWORD}
+            CLOUDWATCH_LOG_GROUP=/aws/ssm/solara-etl
+            CLOUDWATCH_LOG_STREAM=etl-pipeline
+            EOF
+
+          # Sync all project files to the EC2 instance
+          - rsync -avz -e "ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no" --exclude='.git/' ./ ec2-user@${EC2_HOST}:/home/ec2-user/etl_project
+
+    - step:
+        name: Deploy Infrastructure & Verify
+        trigger: manual
+        caches:
+          - pip
+        script:
+          - pip install boto3
+          - export AWS_REGION=af-south-1
           - python deploy_lambda.py deploy
           - echo "Waiting for CloudFormation stack to complete..."
           - aws cloudformation wait stack-create-complete --stack-name solara-etl-stack --region af-south-1 || aws cloudformation wait stack-update-complete --stack-name solara-etl-stack --region af-south-1
-          - echo "Testing EventBridge rule (triggering manual SSM command)..."
-          - EC2_ID=$(aws cloudformation describe-stacks --stack-name solara-etl-stack --region af-south-1 --query 'Stacks[0].Outputs[?OutputKey==`EC2InstanceId`].OutputValue' --output text)
-          - echo "EC2 Instance ID from Stack Output: $EC2_ID"
           - echo "Deployment successful!"
           - echo "Stack outputs:"
           - aws cloudformation describe-stacks --stack-name solara-etl-stack --region af-south-1 --query 'Stacks[0].Outputs' --output table
-          - echo "CloudWatch Logs will be available at:"
-          - echo "  Group: /aws/ssm/solara-etl"

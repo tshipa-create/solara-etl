@@ -1,4 +1,3 @@
-# FILE: upper_naming.py
 from dlt.common.normalizers.naming.snake_case import NamingConvention as SnakeCase
 
 class UpperSnakeCase(SnakeCase):

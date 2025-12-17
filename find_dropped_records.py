@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import psycopg2
 import snowflake.connector
 import os

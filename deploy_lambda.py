@@ -57,15 +57,31 @@ def deploy_cloudformation(stack_name, template_file, parameters=None, region='af
             })
     
     try:
-        cf.describe_stacks(StackName=stack_name)
-        print(f"Stack {stack_name} exists, updating...")
-        response = cf.update_stack(
-            StackName=stack_name,
-            TemplateBody=template_body,
-            Parameters=params,
-            Capabilities=['CAPABILITY_NAMED_IAM']
-        )
-        print(f"Update initiated: {response['StackId']}")
+        stack = cf.describe_stacks(StackName=stack_name)['Stacks'][0]
+        status = stack['StackStatus']
+        
+        if status in ['ROLLBACK_COMPLETE', 'CREATE_FAILED', 'DELETE_COMPLETE', 'UPDATE_ROLLBACK_COMPLETE']:
+            print(f"Stack {stack_name} is in {status} state. Deleting and recreating...")
+            cf.delete_stack(StackName=stack_name)
+            waiter = cf.get_waiter('stack_delete_complete')
+            waiter.wait(StackName=stack_name)
+            print(f"Stack {stack_name} deleted. Creating new stack...")
+            response = cf.create_stack(
+                StackName=stack_name,
+                TemplateBody=template_body,
+                Parameters=params,
+                Capabilities=['CAPABILITY_NAMED_IAM']
+            )
+            print(f"Create initiated: {response['StackId']}")
+        else:
+            print(f"Stack {stack_name} exists with status {status}, updating...")
+            response = cf.update_stack(
+                StackName=stack_name,
+                TemplateBody=template_body,
+                Parameters=params,
+                Capabilities=['CAPABILITY_NAMED_IAM']
+            )
+            print(f"Update initiated: {response['StackId']}")
     except cf.exceptions.ClientError as e:
         if 'does not exist' in str(e):
             print(f"Stack {stack_name} doesn't exist, creating...")

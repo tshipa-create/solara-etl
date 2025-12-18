@@ -60,12 +60,10 @@ Resources:
             }
 
           RetryPolicy:
-            # FIXED: Corrected property name
             MaximumEventAgeInSeconds: 3600
             MaximumRetryAttempts: 2
           
           RunCommandParameters:
-            # FIXED: Removed CloudWatchOutputConfig (not supported here)
             RunCommandTargets:
               - Key: 'InstanceIds'
                 Values:

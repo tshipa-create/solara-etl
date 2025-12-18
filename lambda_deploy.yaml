@@ -16,6 +16,12 @@ Parameters:
     Default: 'cron(0 */2 * * ? *)'
     Description: 'Cron expression for EventBridge schedule (default: every 2 hours)'
 
+  # Not used in the Resources anymore, but must exist here to prevent ValidationError.
+  LogGroupNameParam:
+    Type: String
+    Default: /aws/ssm/solara-etl
+    Description: Placeholder for legacy log group param
+
 Resources:
   SSMExecutionRole:
     Type: AWS::IAM::Role

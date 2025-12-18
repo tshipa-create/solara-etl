@@ -74,7 +74,7 @@ Resources:
       ScheduleExpression: !Ref ScheduleExpression
       State: ENABLED
       Targets:
-        - Arn: !Sub 'arn:aws:ssm:${AWS::Region}::document/AWS-RunShellScript'
+        - Arn: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:document/AWS-RunShellScript'
           RoleArn: !GetAtt SSMExecutionRole.Arn
           RetryPolicy:
             MaximumEventAge: 3600

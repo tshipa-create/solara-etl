@@ -13,8 +13,10 @@ pipelines:
         caches:
           - pip
         script:
-          - pip install pyyaml
+          - pip install pyyaml boto3 awscli cfn-lint
           - python validate_yaml.py
+          - cfn-lint lambda_deploy.yaml
+          - python deploy_lambda.py validate
 
     - step:
         name: Sync Code and Config to EC2
@@ -53,7 +55,7 @@ pipelines:
 
     - step:
         name: Deploy Infrastructure & Verify
-        trigger: automatic
+        trigger: manual
         caches:
           - pip
         script:

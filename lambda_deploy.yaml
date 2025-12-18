@@ -16,21 +16,16 @@ Parameters:
     Default: 'cron(0 */2 * * ? *)'
     Description: 'Cron expression for EventBridge schedule (default: every 2 hours)'
 
-  CloudWatchLogGroup:
+  LogGroupNameParam:
     Type: String
     Default: /aws/ssm/solara-etl
     Description: CloudWatch log group name for SSM
-
-  ScriptPath:
-    Type: String
-    Default: /home/ec2-user/etl_project/main.py
-    Description: Path to the Python script on EC2
 
 Resources:
   SSMExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: solara-etl-ssm-role
+      # Removed RoleName to prevent "Entity Already Exists" errors
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -47,23 +42,14 @@ Resources:
                 Action:
                   - 'ssm:SendCommand'
                 Resource:
-                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:document/AWS-RunShellScript'
+                  - !Sub 'arn:aws:ssm:${AWS::Region}::document/AWS-RunShellScript'
                   - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/${EC2InstanceId}'
-        - PolicyName: SSMWriteCloudWatch
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - 'logs:CreateLogGroup'
-                  - 'logs:CreateLogStream'
-                  - 'logs:PutLogEvents'
-                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${CloudWatchLogGroup}:*'
 
-  SolaraETLCloudWatchLogGroup:
+  # Renamed Resource to avoid conflict with Parameter Name
+  SolaraLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Ref CloudWatchLogGroup
+      LogGroupName: !Ref LogGroupNameParam
       RetentionInDays: 30
 
   EventBridgeRule:
@@ -74,23 +60,33 @@ Resources:
       ScheduleExpression: !Ref ScheduleExpression
       State: ENABLED
       Targets:
-        - Arn: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:document/AWS-RunShellScript'
+        - Id: SolaraEtlTarget # Mandatory field added
+          Arn: !Sub 'arn:aws:ssm:${AWS::Region}::document/AWS-RunShellScript'
           RoleArn: !GetAtt SSMExecutionRole.Arn
+          
+          # FIXED: Using Input to pass commands properly
+          # USAGE: runuser -l ensures we run as ec2-user (not root) to avoid permission issues
+          Input: !Sub |
+            {
+              "commands": [
+                "runuser -l ec2-user -c 'cd /home/ec2-user/etl_project && /home/ec2-user/etl_project/venv/bin/python main.py'"
+              ]
+            }
+
           RetryPolicy:
             MaximumEventAge: 3600
             MaximumRetryAttempts: 2
+          
           RunCommandParameters:
             RunCommandTargets:
-              - Key: 'aws:ec2instances:id'
+              - Key: 'InstanceIds'
                 Values:
                   - !Ref EC2InstanceId
-            TimeoutSeconds: 600
+            
+            # Note: The existing EC2 Instance Profile needs permissions to write to this Group
             CloudWatchOutputConfig:
-              CloudWatchLogGroupName: !Ref CloudWatchLogGroup
+              CloudWatchLogGroupName: !Ref LogGroupNameParam
               CloudWatchOutputEnabled: true
-            Parameters:
-              command:
-                - !Sub 'cd /home/ec2-user/etl_project && source venv/bin/activate && python main.py'
 
 Outputs:
   EventBridgeRuleArn:
@@ -99,20 +95,8 @@ Outputs:
     Export:
       Name: !Sub '${AWS::StackName}-EventBridgeRuleArn'
 
-  EventBridgeRuleName:
-    Description: Name of the EventBridge rule
-    Value: !Ref EventBridgeRule
-    Export:
-      Name: !Sub '${AWS::StackName}-EventBridgeRuleName'
-
   CloudWatchLogGroupName:
     Description: CloudWatch log group name
-    Value: !Ref SolaraETLCloudWatchLogGroup
+    Value: !Ref SolaraLogGroup
     Export:
       Name: !Sub '${AWS::StackName}-LogGroup'
-
-  EC2InstanceId:
-    Description: EC2 instance that will run the ETL script
-    Value: !Ref EC2InstanceId
-    Export:
-      Name: !Sub '${AWS::StackName}-EC2Instance'

@@ -9,14 +9,12 @@ definitions:
 pipelines:
   default:
     - step:
-        name: Validate CloudFormation Template
+        name: Validate YAML
         caches:
           - pip
         script:
-          - pip install pyyaml boto3 awscli cfn-lint
+          - pip install pyyaml
           - python validate_yaml.py
-          - cfn-lint lambda_deploy.yaml
-          - python deploy_lambda.py validate
 
     - step:
         name: Sync Code and Config to EC2

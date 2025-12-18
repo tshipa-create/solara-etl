@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'CloudFormation template for Solara ETL on EC2 with EventBridge and CloudWatch'
+Description: 'CloudFormation template for Solara ETL on EC2 with EventBridge'
 
 Parameters:
   EC2InstanceId:
@@ -16,16 +16,10 @@ Parameters:
     Default: 'cron(0 */2 * * ? *)'
     Description: 'Cron expression for EventBridge schedule (default: every 2 hours)'
 
-  LogGroupNameParam:
-    Type: String
-    Default: /aws/ssm/solara-etl
-    Description: CloudWatch log group name for SSM
-
 Resources:
   SSMExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      # Removed RoleName to prevent "Entity Already Exists" errors
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -45,13 +39,6 @@ Resources:
                   - !Sub 'arn:aws:ssm:${AWS::Region}::document/AWS-RunShellScript'
                   - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/${EC2InstanceId}'
 
-  # Renamed Resource to avoid conflict with Parameter Name
-  SolaraLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Ref LogGroupNameParam
-      RetentionInDays: 30
-
   EventBridgeRule:
     Type: AWS::Events::Rule
     Properties:
@@ -60,12 +47,11 @@ Resources:
       ScheduleExpression: !Ref ScheduleExpression
       State: ENABLED
       Targets:
-        - Id: SolaraEtlTarget # Mandatory field added
+        - Id: SolaraEtlTarget
           Arn: !Sub 'arn:aws:ssm:${AWS::Region}::document/AWS-RunShellScript'
           RoleArn: !GetAtt SSMExecutionRole.Arn
           
-          # FIXED: Using Input to pass commands properly
-          # USAGE: runuser -l ensures we run as ec2-user (not root) to avoid permission issues
+          # Command to run (using runuser for safety)
           Input: !Sub |
             {
               "commands": [
@@ -74,19 +60,16 @@ Resources:
             }
 
           RetryPolicy:
-            MaximumEventAge: 3600
+            # FIXED: Corrected property name
+            MaximumEventAgeInSeconds: 3600
             MaximumRetryAttempts: 2
           
           RunCommandParameters:
+            # FIXED: Removed CloudWatchOutputConfig (not supported here)
             RunCommandTargets:
               - Key: 'InstanceIds'
                 Values:
                   - !Ref EC2InstanceId
-            
-            # Note: The existing EC2 Instance Profile needs permissions to write to this Group
-            CloudWatchOutputConfig:
-              CloudWatchLogGroupName: !Ref LogGroupNameParam
-              CloudWatchOutputEnabled: true
 
 Outputs:
   EventBridgeRuleArn:
@@ -94,9 +77,3 @@ Outputs:
     Value: !GetAtt EventBridgeRule.Arn
     Export:
       Name: !Sub '${AWS::StackName}-EventBridgeRuleArn'
-
-  CloudWatchLogGroupName:
-    Description: CloudWatch log group name
-    Value: !Ref SolaraLogGroup
-    Export:
-      Name: !Sub '${AWS::StackName}-LogGroup'

@@ -10,7 +10,7 @@ definitions:
 pipelines:
   default:
     - step:
-        name: Validate YAML & Build
+        name: Validate & Test Build
         services:
           - docker
         caches:
@@ -18,9 +18,11 @@ pipelines:
         script:
           - pip install pyyaml
           - python validate_yaml.py
-          - echo "Building Docker image for Solara ETL..."
+          - echo "Validating Python syntax..."
+          - python -m py_compile main.py deploy_lambda.py validate_yaml.py
+          - echo "Building Docker image..."
           - docker build -t solara-etl:$BITBUCKET_COMMIT .
-          - docker image ls
+          - echo "Docker build successful!"
 
     - step:
         name: Deploy to EC2 with Docker

@@ -3,6 +3,5 @@ botocore==1.41.0
 cryptography==46.0.3
 psycopg2-binary==2.9.11
 python-dotenv==1.2.1
-snowflake-connector-python==4.1.0
-pyarrow==22.0.0
+snowflake-connector-python>=3.8.0
 watchtower==3.0.1

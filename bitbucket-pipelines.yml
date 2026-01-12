@@ -48,8 +48,12 @@ pipelines:
             
             cd /home/ec2-user/etl_project
             
-            # Pull latest code
-            git pull origin main || true
+            # Ensure Docker and Git are installed
+            sudo yum install -y docker git >/dev/null 2>&1 || true
+            sudo systemctl start docker >/dev/null 2>&1 || true
+            
+            # Build Docker image
+            docker build -t solara-etl:latest . >/dev/null 2>&1
             
             # Run Docker container with Bitbucket variables
             docker run --rm \

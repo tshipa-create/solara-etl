@@ -1,32 +1,34 @@
-# Use a Python image with pip pre-installed
-# Then install AWS CLI as needed in steps
 image: python:3.11
 
 definitions:
   caches:
     pip: ~/.cache/pip
+  services:
+    docker:
+      memory: 1024
 
 pipelines:
   default:
     - step:
-        name: Validate YAML
+        name: Validate YAML & Build
         caches:
           - pip
         script:
           - pip install pyyaml
           - python validate_yaml.py
+          - echo "Building Docker image for Solara ETL..."
+          - docker build -t solara-etl:$BITBUCKET_COMMIT .
+          - docker image ls
 
     - step:
-        name: Sync Code and Config to EC2
-      
+        name: Deploy to EC2 with Docker
         trigger: automatic
         script:
           - apt-get update && apt-get install -y rsync openssh-client
           - pip install awscli
-          # Configure AWS credentials for fetching the SSH key
           - export AWS_REGION=af-south-1
 
-          # Setup SSH key for rsync
+          # Setup SSH key from SSM
           - mkdir -p ~/.ssh
           - aws ssm get-parameter --name "/swordfish_etl/SSH_KEY_FILE" --with-decryption --query "Parameter.Value" --output text --region af-south-1 > ~/.ssh/ec2_key || true
           - |
@@ -36,20 +38,36 @@ pipelines:
             fi
           - chmod 400 ~/.ssh/ec2_key
 
-          # Create the .env file locally before syncing
+          # Create deployment script with Docker environment (passes Bitbucket variables)
           - |
-            cat > .env <<EOF
-            DB_HOST=solara.crqioqgga31u.af-south-1.rds.amazonaws.com
-            DB_PORT=5432
-            DB_NAME=solara
-            DB_USER=tableau
-            DB_PASSWORD=${DB_PASSWORD}
-            CLOUDWATCH_LOG_GROUP=/aws/ssm/solara-etl
-            CLOUDWATCH_LOG_STREAM=etl-pipeline
-            EOF
+            cat > deploy.sh <<SCRIPT
+            #!/bin/bash
+            set -e
+            
+            cd /home/ec2-user/etl_project
+            
+            # Pull latest code
+            git pull origin main || true
+            
+            # Run Docker container with Bitbucket variables
+            docker run --rm \
+              -e DB_PASSWORD='${DB_PASSWORD}' \
+              -e AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID}' \
+              -e AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY}' \
+              -e CLOUDWATCH_LOG_GROUP=/aws/ssm/solara-etl \
+              -e CLOUDWATCH_LOG_STREAM=etl-pipeline \
+              -v ~/.aws:/root/.aws:ro \
+              solara-etl:latest
+            SCRIPT
+            chmod +x deploy.sh
 
-          # Sync all project files to the EC2 instance
-          - rsync -avz -e "ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no" --exclude='.git/' ./ ec2-user@${EC2_HOST}:/home/ec2-user/etl_project
+          # Sync project files and deployment script to EC2
+          - rsync -avz -e "ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no" --exclude='.git/' --exclude='.env' ./ ec2-user@${EC2_HOST}:/home/ec2-user/etl_project/
+          - rsync -avz -e "ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no" deploy.sh ec2-user@${EC2_HOST}:/home/ec2-user/etl_project/
+
+          # Execute deployment on EC2
+          - ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ec2-user@${EC2_HOST} "cd /home/ec2-user/etl_project && bash deploy.sh"
+          - echo "Deployment to EC2 completed successfully!"
 
     - step:
         name: Deploy Infrastructure & Verify

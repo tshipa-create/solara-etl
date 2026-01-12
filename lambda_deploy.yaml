@@ -57,11 +57,11 @@ Resources:
           Arn: !Sub 'arn:aws:ssm:${AWS::Region}::document/AWS-RunShellScript'
           RoleArn: !GetAtt SSMExecutionRole.Arn
           
-          # Command to run (using runuser for safety)
+          # Command to run Docker container (using runuser for safety)
           Input: !Sub |
             {
               "commands": [
-                "runuser -l ec2-user -c 'cd /home/ec2-user/etl_project && /home/ec2-user/etl_project/venv/bin/python main.py'"
+                "runuser -l ec2-user -c 'cd /home/ec2-user/etl_project && docker run --rm -e AWS_REGION=${AWS::Region} -e DB_HOST=$(grep DB_HOST .env | cut -d= -f2) -e DB_PORT=$(grep DB_PORT .env | cut -d= -f2) -e DB_NAME=$(grep DB_NAME .env | cut -d= -f2) -e DB_USER=$(grep DB_USER .env | cut -d= -f2) -e DB_PASSWORD=$(grep DB_PASSWORD .env | cut -d= -f2) -e CLOUDWATCH_LOG_GROUP=$(grep CLOUDWATCH_LOG_GROUP .env | cut -d= -f2) -e CLOUDWATCH_LOG_STREAM=$(grep CLOUDWATCH_LOG_STREAM .env | cut -d= -f2) -v ~/.aws:/root/.aws:ro solara-etl:latest'"
               ]
             }
 

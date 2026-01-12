@@ -1,12 +1,5 @@
 image: python:3.11
 
-definitions:
-  caches:
-    pip: ~/.cache/pip
-  services:
-    docker:
-      memory: 1024
-
 pipelines:
   default:
     - step:

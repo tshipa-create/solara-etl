@@ -479,7 +479,7 @@ def load_table(pg_conn, sf_conn, table_name: str, pg_schema: str = "public", tar
     return result
 
 
-def run(num_workers: int = 4, batch_size: int = 5000):
+def run(num_workers: int = 1, batch_size: int = 5000):
     logger.info("--- STARTING ETL PIPELINE (Postgres -> Snowflake) ---")
     log_endpoints()
     test_connections()
@@ -491,9 +491,11 @@ def run(num_workers: int = 4, batch_size: int = 5000):
         setup_metadata_table(sf_conn.cursor(), TARGET_SCHEMA)
         sf_conn.commit()
 
+        excluded_tables = {"auditlog_logentry"}
+        
         with pg_conn.cursor() as c:
             c.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name")
-            tables = [r[0] for r in c.fetchall()]
+            tables = [r[0] for r in c.fetchall() if r[0] not in excluded_tables]
 
         logger.info(f"Found {len(tables)} tables to process. Starting parallel load with {num_workers} workers")
         

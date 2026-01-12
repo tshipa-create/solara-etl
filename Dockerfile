@@ -1,16 +1,15 @@
-FROM python:3.11-slim
+FROM python:3.11-alpine
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apk add --no-cache \
     curl \
-    build-essential \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+    gcc \
+    musl-dev \
+    postgresql-dev
 
 COPY requirements.txt .
-RUN pip install --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 COPY entrypoint.sh /app/entrypoint.sh

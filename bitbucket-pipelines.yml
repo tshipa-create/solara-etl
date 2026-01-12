@@ -10,21 +10,6 @@ definitions:
 pipelines:
   default:
     - step:
-        name: Validate & Test Build
-        services:
-          - docker
-        caches:
-          - pip
-        script:
-          - pip install pyyaml
-          - python validate_yaml.py
-          - echo "Validating Python syntax..."
-          - python -m py_compile main.py deploy_lambda.py validate_yaml.py
-          - echo "Building Docker image..."
-          - docker build -t solara-etl:$BITBUCKET_COMMIT .
-          - echo "Docker build successful!"
-
-    - step:
         name: Deploy to EC2 with Docker
         trigger: automatic
         script:

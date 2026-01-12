@@ -40,36 +40,9 @@ pipelines:
             fi
           - chmod 400 ~/.ssh/ec2_key
 
-          # Create deployment script with Docker environment (passes Bitbucket variables)
-          - |
-            cat > deploy.sh <<SCRIPT
-            #!/bin/bash
-            set -e
-            
-            cd /home/ec2-user/etl_project
-            
-            # Ensure Docker and Git are installed
-            sudo yum install -y docker git
-            sudo systemctl start docker
-            
-            # Build Docker image
-            docker build -t solara-etl:latest .
-            
-            # Run Docker container with Bitbucket variables
-            docker run --rm \
-              -e DB_PASSWORD='${DB_PASSWORD}' \
-              -e AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID}' \
-              -e AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY}' \
-              -e CLOUDWATCH_LOG_GROUP=/aws/ssm/solara-etl \
-              -e CLOUDWATCH_LOG_STREAM=etl-pipeline \
-              -v ~/.aws:/root/.aws:ro \
-              solara-etl:latest
-            SCRIPT
-            chmod +x deploy.sh
-
-          # Sync project files and deployment script to EC2
+          # Sync project files to EC2 (includes deploy.sh from repo)
           - rsync -avz -e "ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no" --exclude='.git/' --exclude='.env' ./ ec2-user@${EC2_HOST}:/home/ec2-user/etl_project/
-          - rsync -avz -e "ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no" deploy.sh ec2-user@${EC2_HOST}:/home/ec2-user/etl_project/
+          - ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ec2-user@${EC2_HOST} "chmod +x /home/ec2-user/etl_project/deploy.sh"
 
           # Execute deployment on EC2
           - ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ec2-user@${EC2_HOST} "cd /home/ec2-user/etl_project && bash deploy.sh"

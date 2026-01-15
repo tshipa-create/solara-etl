@@ -248,7 +248,7 @@ resource "aws_cloudwatch_event_target" "ecs" {
     network_configuration {
       subnets          = data.aws_subnets.default.ids
       security_groups  = [aws_security_group.ecs_tasks.id]
-      assign_public_ip = false
+      assign_public_ip = true
     }
   }
 }

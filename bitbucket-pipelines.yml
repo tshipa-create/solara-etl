@@ -4,9 +4,10 @@ definitions:
   steps:
     - step: &build-and-push-ecr
         name: Build & Push Docker Image to ECR
+        docker: true
         script:
-          - apt-get update && apt-get install -y docker.io
-          - pip install awscli
+          - apt-get update && apt-get install -y python3-pip
+          - pip3 install awscli
           - export AWS_REGION=${AWS_REGION:-af-south-1}
           - export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           - export ECR_REPO=${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/solara-etl
@@ -24,7 +25,8 @@ definitions:
     - step: &verify-secrets
         name: Verify SSM Secrets
         script:
-          - pip install awscli
+          - apt-get update && apt-get install -y python3-pip
+          - pip3 install awscli
           - export AWS_REGION=${AWS_REGION:-af-south-1}
           - aws ssm get-parameter --name /solara-etl/db-password --with-decryption --region ${AWS_REGION} >/dev/null 2>&1 || exit 1
           - aws ssm get-parameter --name /solara-etl/slack-bot-token --with-decryption --region ${AWS_REGION} >/dev/null 2>&1 || exit 1
@@ -33,8 +35,8 @@ definitions:
     - step: &terraform-apply
         name: Deploy with Terraform
         script:
-          - apt-get update && apt-get install -y unzip
-          - pip install awscli
+          - apt-get update && apt-get install -y unzip python3-pip
+          - pip3 install awscli
           - export AWS_REGION=${AWS_REGION:-af-south-1}
           
           - curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add -

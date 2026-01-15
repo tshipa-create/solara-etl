@@ -4,6 +4,7 @@ definitions:
   steps:
     - step: &build-and-push-ecr
         name: Build & Push Docker Image to ECR
+        docker: true
         script:
           - apt-get update && apt-get install -y docker.io
           - pip install awscli

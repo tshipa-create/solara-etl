@@ -1,12 +1,15 @@
 image: python:3.11
 
 definitions:
+  services:
+    docker:
+      memory: 512
   steps:
     - step: &build-and-push-ecr
         name: Build & Push Docker Image to ECR
-        docker: true
+        services:
+          - docker
         script:
-          - apt-get update && apt-get install -y docker.io
           - pip install awscli
           - export AWS_REGION=${AWS_REGION:-af-south-1}
           - export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)

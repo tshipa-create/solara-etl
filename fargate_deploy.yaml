@@ -1,0 +1,242 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Solara ETL Fargate Deployment with EventBridge Scheduling'
+
+Parameters:
+  ECRImageUri:
+    Type: String
+    Description: ECR image URI (e.g., 123456789.dkr.ecr.af-south-1.amazonaws.com/solara-etl:latest)
+  
+  DBHost:
+    Type: String
+    Default: solara.crqioqgga31u.af-south-1.rds.amazonaws.com
+    Description: PostgreSQL host
+  
+  DBPort:
+    Type: Number
+    Default: 5432
+    Description: PostgreSQL port
+  
+  DBName:
+    Type: String
+    Default: solara
+    Description: PostgreSQL database name
+  
+  DBUser:
+    Type: String
+    Default: tableau
+    Description: PostgreSQL username
+  
+  DBPassword:
+    Type: String
+    NoEcho: true
+    Description: PostgreSQL password
+  
+  SlackBotToken:
+    Type: String
+    NoEcho: true
+    Description: Slack bot token (xoxb-...)
+  
+  SlackChannelId:
+    Type: String
+    Description: Slack channel ID
+  
+  ScheduleExpression:
+    Type: String
+    Default: 'cron(0 */2 * * ? *)'
+    Description: EventBridge schedule (every 2 hours by default)
+  
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID where Fargate task will run
+  
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnet IDs for Fargate task (at least 2 recommended)
+
+Resources:
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: solara-etl-cluster
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+
+  CloudWatchLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/fargate/solara-etl
+      RetentionInDays: 30
+
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: CloudWatchLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt CloudWatchLogGroup.Arn
+
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CloudWatchLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:CreateLogGroup
+                Resource: 'arn:aws:logs:*:*:*'
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: solara-etl-task
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: '512'
+      Memory: '1024'
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      ContainerDefinitions:
+        - Name: solara-etl
+          Image: !Ref ECRImageUri
+          Essential: true
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref CloudWatchLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: fargate-run
+          Environment:
+            - Name: DB_HOST
+              Value: !Ref DBHost
+            - Name: DB_PORT
+              Value: !Ref DBPort
+            - Name: DB_NAME
+              Value: !Ref DBName
+            - Name: DB_USER
+              Value: !Ref DBUser
+            - Name: SLACK_CHANNEL_ID
+              Value: !Ref SlackChannelId
+            - Name: CLOUDWATCH_LOG_GROUP
+              Value: !Ref CloudWatchLogGroup
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+          Secrets:
+            - Name: DB_PASSWORD
+              ValueFrom: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/solara-etl/db-password'
+            - Name: SLACK_BOT_TOKEN
+              ValueFrom: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/solara-etl/slack-bot-token'
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: solara-etl-sg
+      GroupDescription: Security group for Solara ETL Fargate task
+      VpcId: !Ref VpcId
+      EgressRules:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS outbound
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 0.0.0.0/0
+          Description: PostgreSQL
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP outbound
+
+  EventBridgeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ECSTaskExecution
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecs:RunTask
+                Resource: !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/solara-etl-task:*'
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource:
+                  - !GetAtt TaskExecutionRole.Arn
+                  - !GetAtt TaskRole.Arn
+
+  ScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: solara-etl-schedule
+      Description: Trigger Solara ETL Fargate task every 2 hours
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ECSCluster.ClusterArn
+          RoleArn: !GetAtt EventBridgeRole.Arn
+          EcsParameters:
+            LaunchType: FARGATE
+            TaskDefinitionArn: !Ref TaskDefinition
+            NetworkConfiguration:
+              AwsVpcConfiguration:
+                Subnets: !Ref SubnetIds
+                SecurityGroups:
+                  - !Ref SecurityGroup
+                AssignPublicIp: DISABLED
+
+Outputs:
+  ClusterName:
+    Description: ECS Cluster Name
+    Value: !Ref ECSCluster
+  
+  TaskDefinitionArn:
+    Description: Task Definition ARN
+    Value: !Ref TaskDefinition
+  
+  LogGroup:
+    Description: CloudWatch Log Group
+    Value: !Ref CloudWatchLogGroup
+  
+  ScheduleRuleName:
+    Description: EventBridge Schedule Rule
+    Value: !Ref ScheduleRule

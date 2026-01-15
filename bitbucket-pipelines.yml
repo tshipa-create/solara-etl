@@ -1,44 +1,81 @@
 image: python:3.11
 
+definitions:
+  steps:
+    - step: &build-and-push-ecr
+        name: Build & Push Docker Image to ECR
+        script:
+          - apt-get update && apt-get install -y docker.io
+          - pip install awscli
+          - export AWS_REGION=${AWS_REGION:-af-south-1}
+          - export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          - export ECR_REPO=${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/solara-etl
+          - export IMAGE_TAG=${BITBUCKET_COMMIT:0:7}
+          
+          - aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO}
+          - aws ecr create-repository --repository-name solara-etl --region ${AWS_REGION} 2>/dev/null || true
+          - docker build -t ${ECR_REPO}:${IMAGE_TAG} -t ${ECR_REPO}:latest .
+          - docker push ${ECR_REPO}:${IMAGE_TAG}
+          - docker push ${ECR_REPO}:latest
+          - echo "ECR_IMAGE=${ECR_REPO}:${IMAGE_TAG}" > build.env
+        artifacts:
+          - build.env
+
+    - step: &verify-secrets
+        name: Verify SSM Secrets
+        script:
+          - pip install awscli
+          - export AWS_REGION=${AWS_REGION:-af-south-1}
+          - aws ssm get-parameter --name /solara-etl/db-password --with-decryption --region ${AWS_REGION} >/dev/null 2>&1 || exit 1
+          - aws ssm get-parameter --name /solara-etl/slack-bot-token --with-decryption --region ${AWS_REGION} >/dev/null 2>&1 || exit 1
+          - echo "✓ Secrets verified"
+
+    - step: &terraform-apply
+        name: Deploy with Terraform
+        script:
+          - apt-get update && apt-get install -y unzip
+          - pip install awscli
+          - export AWS_REGION=${AWS_REGION:-af-south-1}
+          
+          - curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add -
+          - apt-get install software-properties-common -y
+          - apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com focal main"
+          - apt-get update && apt-get install terraform -y
+          
+          - cd terraform
+          - |
+            cat > backend_override.tf << EOF
+            terraform {
+              backend "s3" {
+                bucket         = "${TF_STATE_BUCKET}"
+                key            = "fargate/terraform.tfstate"
+                region         = "${AWS_REGION}"
+                encrypt        = true
+                dynamodb_table = "terraform-locks"
+              }
+            }
+            EOF
+          
+          - terraform init
+          - source ../build.env
+          - |
+            terraform apply -auto-approve \
+              -var "container_image=${ECR_IMAGE}" \
+              -var "db_host=${DB_HOST}" \
+              -var "db_user=${DB_USER}" \
+              -var "db_password=${DB_PASSWORD}" \
+              -var "slack_channel_id=${SLACK_CHANNEL_ID}" \
+              -var "slack_bot_token=${SLACK_BOT_TOKEN}"
+          
+          - terraform output
+
 pipelines:
   default:
-    - step:
-        name: Deploy to EC2 with Docker
-        trigger: automatic
-        script:
-          - apt-get update && apt-get install -y rsync openssh-client
-          - pip install awscli
-          - export AWS_REGION=af-south-1
+    - step: *build-and-push-ecr
+    - step: *verify-secrets
 
-          # Setup SSH key from SSM
-          - mkdir -p ~/.ssh
-          - aws ssm get-parameter --name "/swordfish_etl/SSH_KEY_FILE" --with-decryption --query "Parameter.Value" --output text --region af-south-1 > ~/.ssh/ec2_key || true
-          - |
-            if [ ! -s ~/.ssh/ec2_key ]; then
-              echo "Error: SSH key from SSM is empty. Cannot connect to EC2."
-              exit 1
-            fi
-          - chmod 400 ~/.ssh/ec2_key
-
-          # Sync project files to EC2 (includes deploy.sh from repo)
-          - rsync -avz -e "ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no" --exclude='.git/' --exclude='.env' ./ ec2-user@${EC2_HOST}:/home/ec2-user/etl_project/
-          - ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ec2-user@${EC2_HOST} "chmod +x /home/ec2-user/etl_project/deploy.sh"
-
-          # Execute deployment on EC2
-          - ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ec2-user@${EC2_HOST} "cd /home/ec2-user/etl_project && bash deploy.sh"
-          - echo "Deployment to EC2 completed successfully!"
-
-    - step:
-        name: Deploy Infrastructure & Verify
-        trigger: manual
-        caches:
-          - pip
-        script:
-          - pip install boto3 awscli
-          - export AWS_REGION=af-south-1
-          - python deploy_lambda.py deploy
-          - echo "Waiting for CloudFormation stack to complete..."
-          - aws cloudformation wait stack-create-complete --stack-name solara-etl-stack --region af-south-1 || aws cloudformation wait stack-update-complete --stack-name solara-etl-stack --region af-south-1
-          - echo "Deployment successful!"
-          - echo "Stack outputs:"
-          - aws cloudformation describe-stacks --stack-name solara-etl-stack --region af-south-1 --query 'Stacks[0].Outputs' --output table
+  branches:
+    main:
+      - step: *build-and-push-ecr
+      - step: *verify-secrets
+      - step: *terraform-apply

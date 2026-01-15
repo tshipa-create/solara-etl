@@ -1,284 +1,403 @@
-# Solara ETL Pipeline Deployment Guide
+# Solara ETL Pipeline Deployment
 
-## Architecture Overview
+## Architecture
 
-The Solara ETL pipeline modernizes scheduling and logging on AWS:
-
-- **Scheduling**: AWS EventBridge (cron-based, every 2 hours)
-- **Execution**: EC2 instance running Python script via SSM Run Command
-- **Logging**: CloudWatch Logs (centralized, 30-day retention)
-- **Source**: PostgreSQL (on RDS)
-- **Target**: Snowflake Data Warehouse
-
-## Prerequisites
-
-### 1. AWS Setup
-
-#### IAM Role for EC2 Instance
-- EC2 instance must have `AmazonSSMManagedInstanceCore` policy attached
-- This allows EventBridge to send commands to the instance via Systems Manager
-
-#### SSM Parameters (us-east-1 region)
-- `/snowflake/connection_private_key` - Private key (unencrypted or passphrase-protected)
-- `/snowflake/connection_passphrase` - Passphrase for private key (optional, leave empty if no passphrase)
-
-#### SSM Parameters (af-south-1 region)
-- `/odoo_etl/SNOWFLAKE_ACCOUNT` - Snowflake account identifier
-- `/odoo_etl/SNOWFLAKE_USER` - Snowflake username
-- `/odoo_etl/SNOWFLAKE_DATABASE` - Snowflake database name
-- `/odoo_etl/SNOWFLAKE_WAREHOUSE` - Snowflake warehouse name
-
-### 2. EC2 Instance Setup
-
-#### System Requirements
-- Python 3.8+
-- `curl` installed (for metadata fetch in deployment script)
-- SSM Agent running (default on Amazon Linux 2)
-
-#### Environment Setup
-
-1. **Create project directory**
-```bash
-mkdir -p /home/ec2-user/etl_project
-cd /home/ec2-user/etl_project
+```
+Bitbucket Push → Docker Build → ECR Push → ECS Fargate Task
+                                             ↓
+                            EventBridge (every 2 hours)
+                                             ↓
+                         PostgreSQL RDS → Snowflake
+                                             ↓
+                            CloudWatch Logs + Slack Alerts
 ```
 
-2. **Create Python virtual environment**
+- **Scheduling**: AWS EventBridge (cron-based)
+- **Execution**: ECS Fargate (serverless container)
+- **Logging**: CloudWatch Logs (30-day retention)
+- **Secrets**: AWS SSM Parameter Store (encrypted)
+
+## Setup (One-Time)
+
+### 1. AWS Terraform State Backend
+
+Create S3 bucket and DynamoDB lock table:
 ```bash
-python3 -m venv venv
-source venv/bin/activate
+aws s3 mb s3://solara-etl-terraform-state --region af-south-1
+aws dynamodb create-table \
+  --table-name terraform-locks \
+  --attribute-definitions AttributeName=LockID,AttributeType=S \
+  --key-schema AttributeName=LockID,KeyType=HASH \
+  --provisioned-throughput ReadCapacityUnits=1,WriteCapacityUnits=1 \
+  --region af-south-1
 ```
 
-3. **Install dependencies**
-```bash
-pip install -r requirements.txt
-```
+### 2. AWS CloudWatch Log Group
 
-4. **Create .env file**
+Create log group (Terraform will reference it):
 ```bash
-cat > .env << EOF
-DB_HOST=your-rds-host.af-south-1.rds.amazonaws.com
-DB_PORT=5432
-DB_NAME=solara
-DB_USER=your_db_user
-DB_PASSWORD=your_db_password
-CLOUDWATCH_LOG_GROUP=/aws/ssm/solara-etl
-CLOUDWATCH_LOG_STREAM=etl-pipeline
-EOF
+aws logs create-log-group --log-group-name "/aws/ssm/solara-etl" --region af-south-1
+aws logs put-retention-policy --log-group-name "/aws/ssm/solara-etl" --retention-in-days 30 --region af-south-1
 ```
 
 ### 3. Bitbucket Repository Variables
 
-Set these as repository variables (Settings → Repository Variables):
+Set these in **Settings → Repository Variables**:
 
-| Variable | Example Value | Description |
-|----------|---------------|-------------|
-| `AWS_ACCESS_KEY_ID` | `AKIA...` | AWS IAM user access key |
-| `AWS_SECRET_ACCESS_KEY` | `...` | AWS IAM user secret key |
-| `EC2_HOST` | `ec2-user@10.0.1.100` | EC2 instance SSH address |
-| `EC2_INSTANCE_ID` | `i-0123456789abcdef0` | EC2 instance ID |
-| `DB_PASSWORD` | `...` | PostgreSQL password |
-
-## Deployment Methods
-
-### Method 1: Automated via Bitbucket Pipeline (Recommended)
-
-The pipeline automatically:
-1. Syncs code to EC2 via rsync
-2. Detects EC2 instance ID
-3. Creates CloudFormation stack with EventBridge rule
-4. Configures SSM execution permissions
-5. Sets up CloudWatch log group
-
-**To deploy:**
-Push code to repository:
-```bash
-git push origin main
+```
+AWS_REGION = af-south-1
+AWS_ACCESS_KEY_ID = AKIA...
+AWS_SECRET_ACCESS_KEY = ...
+TF_STATE_BUCKET = solara-etl-terraform-state
+DB_HOST = your-rds-host.af-south-1.rds.amazonaws.com
+DB_USER = tableau
+DB_PASSWORD = your_postgres_password
+SLACK_CHANNEL_ID = C123456789ABC
+SLACK_BOT_TOKEN = xoxb-your-slack-token
 ```
 
-The pipeline runs automatically and deploys the infrastructure.
+These are automatically created in AWS SSM Parameter Store during deployment.
 
-### Method 2: Manual Deployment
+## Deployment Workflow
 
-**Prerequisites:**
-- AWS credentials configured locally (`~/.aws/credentials`)
-- All code synced to EC2
+### Development (Feature Branches)
 
-**Steps:**
-
-1. **Install Python dependencies**
+**1. Create feature branch:**
 ```bash
-pip install boto3
+git checkout -b feature/my-change
 ```
 
-2. **Run deployment script**
+**2. Make code changes** (e.g., modify `main.py`, add dependencies)
+
+**3. Commit changes:**
 ```bash
-export AWS_REGION=af-south-1
-export EC2_INSTANCE_ID=i-0123456789abcdef0
-python deploy_lambda.py deploy
+git add .
+git commit -m "feat: add new table sync logic"
 ```
 
-The script will:
-- Verify EC2 instance exists
-- Create CloudFormation stack (or update if exists)
-- Configure EventBridge rule
-- Set up IAM roles and CloudWatch logs
-
-## Verification Steps
-
-### 1. CloudFormation Stack
+**4. Push to feature branch:**
 ```bash
-aws cloudformation describe-stacks \
-  --stack-name solara-etl-stack \
+git push origin feature/my-change
+```
+
+**Pipeline runs:**
+- Builds Docker image with tag `<commit-hash>`
+- Pushes to ECR as `latest`
+- Verifies SSM secrets exist
+- **Does NOT update infrastructure**
+
+**5. Create Pull Request:**
+- Go to Bitbucket repository
+- Click "Create Pull Request" 
+- Review changes and merge to `main`
+
+### Production (Main Branch)
+
+**1. Merge to main:**
+```bash
+git checkout main
+git pull origin main
+```
+
+Or merge PR in Bitbucket UI
+
+**2. Pipeline automatically runs full deployment:**
+- Builds Docker image with commit hash tag
+- Pushes to ECR as `latest`
+- Verifies SSM secrets exist
+- **Updates ECS task definition** with new image
+- **EventBridge triggers next scheduled run** with new code
+
+**3. Verify deployment:**
+```bash
+aws ecs describe-task-definition \
+  --task-definition solara-etl \
   --region af-south-1 \
-  --output table
+  --query 'taskDefinition.containerDefinitions[0].image' \
+  --output text
 ```
 
-### 2. EventBridge Rule
-```bash
-aws events describe-rule \
-  --name solara-etl-schedule \
-  --region af-south-1
-```
-
-### 3. Manual Test - Trigger SSM Command
-```bash
-EC2_ID=i-0123456789abcdef0
-aws ssm send-command \
-  --instance-ids $EC2_ID \
-  --document-name "AWS-RunShellScript" \
-  --parameters 'command=["cd /home/ec2-user/etl_project && source venv/bin/activate && python main.py"]' \
-  --region af-south-1
-```
-
-Monitor the command:
-```bash
-aws ssm get-command-invocation \
-  --command-id <command-id-from-above> \
-  --instance-id $EC2_ID \
-  --region af-south-1
-```
-
-### 4. CloudWatch Logs
+**4. Monitor execution:**
 ```bash
 aws logs tail /aws/ssm/solara-etl --follow --region af-south-1
 ```
 
-## Pipeline Execution
+### Infrastructure Changes
 
-### Automatic (EventBridge)
-- Runs every 2 hours (configurable via `ScheduleExpression` in template)
-- Logs to `/aws/ssm/solara-etl` CloudWatch log group
-- Failures are retried (max 2 retries, 1 hour between retries)
-
-### Manual
+**1. Edit Terraform files** (e.g., schedule, CPU, memory):
 ```bash
-cd /home/ec2-user/etl_project
-source venv/bin/activate
-python main.py
+git checkout -b infra/update-schedule
+# Edit terraform/variables.tf
+git add terraform/variables.tf
+git commit -m "infra: change schedule to hourly"
+git push origin infra/update-schedule
 ```
 
-## Data Validation
+**2. Create PR and merge to `main`**
 
-Run the validation script to compare record counts:
+**3. Pipeline applies changes:**
+- Updates ECS cluster
+- Reconfigures EventBridge rule
+- Updates CloudWatch configuration
+- No downtime - updates happen in-place
+
+## Rollback
+
+**If deployment breaks:**
+
+**Option 1: Revert code**
 ```bash
-python validate_record_counts.py
+git revert <commit-hash>
+git push origin main
+# Pipeline redeploys with previous version
 ```
 
-**Output includes:**
-- Total record counts per table in PostgreSQL
-- Comparison with Snowflake (if connection successful)
-- Identifies tables with mismatches
+**Option 2: Manual rollback**
+```bash
+aws ecs update-service \
+  --cluster solara-etl-cluster \
+  --service solara-etl \
+  --task-definition solara-etl:<previous-revision> \
+  --region af-south-1
+```
 
-## Troubleshooting
+## Quick Reference
 
-### Pipeline Not Running
-1. Check EventBridge rule is `ENABLED`
+| Branch | Docker Build | Secrets Check | Infrastructure |
+|--------|:---:|:---:|:---:|
+| feature/* | Yes | Yes | No |
+| main | Yes | Yes | Yes |
+
+## Monitoring
+
+### View Logs in Real-Time
+```bash
+aws logs tail /aws/ssm/solara-etl --follow --region af-south-1
+```
+
+### Get Last 100 Lines of Logs
+```bash
+aws logs tail /aws/ssm/solara-etl --max-items 100 --region af-south-1
+```
+
+### View Specific Time Range
+```bash
+aws logs filter-log-events \
+  --log-group-name /aws/ssm/solara-etl \
+  --start-time $(($(date +%s%N)/1000000 - 3600000)) \
+  --region af-south-1
+```
+
+### Check EventBridge Status
 ```bash
 aws events describe-rule --name solara-etl-schedule --region af-south-1
 ```
 
-2. Verify EC2 instance is in target group and has SSM Agent running
+### View Scheduled Events
 ```bash
-aws ssm describe-instance-information --instance-information-filter-list "key=InstanceIds,valueSet=i-0123456789abcdef0" --region af-south-1
+aws events list-targets-by-rule --rule solara-etl-schedule --region af-south-1
 ```
 
-### Snowflake Connection Errors
-
-**"Password is empty" error:**
-- Ensure `/snowflake/connection_passphrase` is set (can be empty string if no passphrase)
-- Script now handles both password-protected and unencrypted keys
-
-**Missing credentials:**
+### Manual Task Run (On-Demand)
 ```bash
-aws ssm get-parameter --name /odoo_etl/SNOWFLAKE_ACCOUNT --region af-south-1 --with-decryption
+CLUSTER=$(terraform output -raw cluster_name)
+TASK_DEF=$(terraform output -raw task_definition_arn)
+aws ecs run-task \
+  --cluster $CLUSTER \
+  --task-definition $TASK_DEF \
+  --launch-type FARGATE \
+  --network-configuration "awsvpcConfiguration={assignPublicIp=DISABLED}" \
+  --region af-south-1
 ```
 
-### CloudWatch Logs Missing
-- Check SSM role has `logs:PutLogEvents` permission
-- Verify log group exists: `/aws/ssm/solara-etl`
-- Check SSM command output config is enabled in EventBridge target
+### Check Task Status
+```bash
+aws ecs list-tasks \
+  --cluster solara-etl-cluster \
+  --region af-south-1
+```
 
-### PostgreSQL Connection Issues
-- Verify `.env` has correct DB credentials
-- Test connection: `psql -h $DB_HOST -U $DB_USER -d $DB_NAME`
-- Check RDS security group allows EC2 inbound on port 5432
+### View Task Details
+```bash
+aws ecs describe-tasks \
+  --cluster solara-etl-cluster \
+  --tasks <task-arn> \
+  --region af-south-1
+```
+
+### Check Docker Image Currently Deployed
+```bash
+aws ecs describe-task-definition \
+  --task-definition solara-etl \
+  --region af-south-1 \
+  --query 'taskDefinition.containerDefinitions[0].image'
+```
 
 ## Configuration
 
-### EventBridge Schedule
-Edit `lambda_deploy.yaml`, update `ScheduleExpression` parameter:
+### Change Execution Schedule
+
+**1. Edit Terraform variables:**
+```bash
+git checkout -b infra/update-schedule
+# Edit terraform/variables.tf
+```
+
+**2. Update schedule:**
+```hcl
+variable "schedule_expression" {
+  type    = string
+  default = "cron(0 * * * ? *)"  # Change this
+}
+```
+
+**3. Commit and push to main:**
+```bash
+git add terraform/variables.tf
+git commit -m "infra: change schedule to hourly"
+git push origin infra/update-schedule
+# Create PR and merge to main
+```
+
+**4. Pipeline applies new schedule automatically**
+
+**Common schedules:**
 
 | Frequency | Cron Expression |
-|-----------|-----------------|
-| Every hour | `cron(0 * * * ? *)` |
+|-----------|---|
+| Hourly | `cron(0 * * * ? *)` |
 | Every 2 hours | `cron(0 */2 * * ? *)` |
-| Daily at 2 AM | `cron(0 2 * * ? *)` |
 | Every 6 hours | `cron(0 */6 * * ? *)` |
+| Daily at 2 AM UTC | `cron(0 2 * * ? *)` |
+| Every weekday 6 AM | `cron(0 6 ? * MON-FRI *)` |
 
-Then redeploy:
+### Change Task Resources (CPU/Memory)
+
+**1. Edit Terraform variables:**
 ```bash
-python deploy_lambda.py deploy
+git checkout -b infra/increase-resources
 ```
 
-### CloudWatch Log Retention
-Edit `lambda_deploy.yaml`, update `CloudWatchLogGroup` resource:
-```yaml
-RetentionInDays: 30  # Change to desired days
+**2. Update resources:**
+```hcl
+variable "task_cpu" {
+  type    = string
+  default = "1024"  # 256, 512, 1024, 2048, 4096
+}
+
+variable "task_memory" {
+  type    = number
+  default = 2048  # MB, must match CPU
+}
 ```
 
-## Files Overview
+**3. Commit and push:**
+```bash
+git add terraform/variables.tf
+git commit -m "infra: increase CPU to 1024 and memory to 2048MB"
+git push origin infra/increase-resources
+# Create PR and merge to main
+```
+
+**4. Pipeline updates task definition automatically**
+
+### Change Database Connection
+
+**1. Update Bitbucket repository variables** (Settings → Repository Variables):
+```
+DB_HOST = new-rds-host.af-south-1.rds.amazonaws.com
+DB_USER = new_user
+```
+
+**2. No code changes needed** - pipeline picks up new variables on next deploy
+
+### Change Slack Channel
+
+**1. Update Bitbucket variable:**
+```
+SLACK_CHANNEL_ID = C987654321XYZ
+```
+
+**2. Next deployment sends alerts to new channel**
+
+## Pre-Deployment Checklist
+
+- [ ] Terraform state S3 bucket exists
+- [ ] DynamoDB lock table exists
+- [ ] CloudWatch log group `/aws/ssm/solara-etl` exists
+- [ ] Bitbucket repository variables set:
+  - [ ] AWS_ACCESS_KEY_ID
+  - [ ] AWS_SECRET_ACCESS_KEY
+  - [ ] TF_STATE_BUCKET
+  - [ ] DB_HOST
+  - [ ] DB_USER
+  - [ ] DB_PASSWORD
+  - [ ] SLACK_CHANNEL_ID
+  - [ ] SLACK_BOT_TOKEN
+
+## Troubleshooting
+
+### Verify Secrets Were Created by Terraform
+```bash
+aws ssm get-parameter --name /solara-etl/db-password --with-decryption --region af-south-1
+aws ssm get-parameter --name /solara-etl/slack-bot-token --with-decryption --region af-south-1
+```
+
+If not found, check that `DB_PASSWORD` and `SLACK_BOT_TOKEN` Bitbucket variables are set and deployment succeeded.
+
+### Verify Log Group Exists
+```bash
+aws logs describe-log-groups --log-group-name-prefix "/aws/ssm/solara-etl" --region af-south-1
+```
+
+### Task Failed
+Check logs:
+```bash
+aws logs tail /aws/ssm/solara-etl --follow --region af-south-1
+```
+
+### Manual Re-Deploy
+```bash
+cd terraform
+terraform init
+terraform apply \
+  -var "container_image=<ECR_IMAGE>" \
+  -var "db_host=<DB_HOST>" \
+  -var "db_user=<DB_USER>" \
+  -var "slack_channel_id=<SLACK_CHANNEL>"
+```
+
+## Current Files (Use These)
 
 | File | Purpose |
 |------|---------|
-| `main.py` | ETL pipeline logic (dlt-based) |
-| `lambda_deploy.yaml` | CloudFormation template for EventBridge + SSM + CloudWatch |
-| `deploy_lambda.py` | Automation script for CloudFormation deployment |
-| `bitbucket-pipelines.yml` | CI/CD pipeline configuration |
+| `bitbucket-pipelines.yml` | CI/CD automation (Bitbucket → Docker → ECR → ECS) |
+| `terraform/main.tf` | Infrastructure definition (ECS Fargate + EventBridge + SSM Secrets) |
+| `terraform/variables.tf` | Configuration parameters |
+| `terraform/outputs.tf` | Output values for Terraform |
+| `Dockerfile` | Container image definition |
+| `entrypoint.sh` | Container startup script |
+| `main.py` | ETL pipeline logic |
 | `requirements.txt` | Python dependencies |
-| `validate_record_counts.py` | Data quality validation tool |
-| `upper_naming.py` | Schema naming convention utility |
 
-## Database Credentials & Secrets Management
+## Deprecated Files (Do Not Use)
 
-### Local Development (.env)
-Never commit `.env` file with real credentials.
+These files are from older deployment methods. Do not use them:
 
-### Production (AWS SSM Parameter Store)
-- Snowflake credentials stored in us-east-1 SSM (key material region)
-- Database credentials in Bitbucket repository variables (encrypted)
-- EC2 instance retrieves credentials at runtime
+| File | Reason |
+|------|--------|
+| `deploy.sh` | Old EC2 deployment script |
+| `deploy_lambda.py` | Old Lambda CloudFormation |
+| `deploy_fargate.py` | Old Fargate deployment script |
+| `deploy_to_lambda.py` | Old Lambda script |
+| `lambda_deploy.yaml` | Old CloudFormation template |
+| `fargate_deploy.yaml` | Old CloudFormation template |
+| `setup-ssm-secrets.sh` | Secrets now created by Terraform |
+| `cleanup_slack.py` | Legacy script |
+| `validate_yaml.py` | Legacy validation |
+| `upper_naming.py` | Legacy utility |
+| `lambda_handler.py` | Old Lambda handler |
 
-## Support & Monitoring
-
-### Daily Operations
-- Check CloudWatch logs: `/aws/ssm/solara-etl`
-- Monitor failed EventBridge invocations (CloudWatch Events metrics)
-- Validate record counts weekly: `python validate_record_counts.py`
-
-### Escalation
-If pipeline fails:
-1. Check CloudWatch logs for error messages
-2. Verify all SSM parameters are correctly set
-3. Test manual SSM command execution
-4. Check PostgreSQL and Snowflake connectivity independently
+**All deployment is now handled by:**
+1. `bitbucket-pipelines.yml` (automated CI/CD)
+2. `terraform/` (infrastructure as code)

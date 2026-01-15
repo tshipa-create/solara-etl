@@ -1,0 +1,22 @@
+aws_region       = "af-south-1"
+app_name         = "solara-etl"
+environment      = "production"
+cluster_name     = "solara-etl-cluster"
+log_group_name   = "/aws/ssm/solara-etl"
+log_retention_days = 30
+
+container_image  = "123456789.dkr.ecr.af-south-1.amazonaws.com/solara-etl:latest"
+task_cpu         = "512"
+task_memory      = 1024
+
+vpc_id           = "vpc-xxxxxxxxx"
+subnet_ids       = ["subnet-xxxxxxxxx", "subnet-yyyyyyyyy"]
+
+schedule_expression = "cron(0 */2 * * ? *)"
+
+db_host          = "solara.crqioqgga31u.af-south-1.rds.amazonaws.com"
+db_port          = 5432
+db_name          = "solara"
+db_user          = "tableau"
+
+slack_channel_id = "C0A87HW3J31"

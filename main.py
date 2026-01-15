@@ -7,6 +7,7 @@ import hashlib
 import time
 from typing import List, Tuple, Optional, Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib import request
 
 import psycopg2
 import snowflake.connector
@@ -30,6 +31,10 @@ def setup_logging() -> logging.Logger:
     logger.setLevel(logging.INFO)
     logger.propagate = False
 
+    # Clear existing handlers to avoid duplicate logs in interactive sessions
+    if logger.hasHandlers():
+        logger.handlers.clear()
+
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
     sh = logging.StreamHandler(sys.stdout)
@@ -45,7 +50,7 @@ def setup_logging() -> logging.Logger:
 
     if WATCHTOWER_AVAILABLE:
         try:
-            logs_group = os.getenv("CLOUDWATCH_LOG_GROUP", "solara-etl-ec2")
+            logs_group = os.getenv("CLOUDWATCH_LOG_GROUP", "/aws/ssm/solara-etl")
             logs_stream = os.getenv("CLOUDWATCH_LOG_STREAM", "production-run")
             region = os.getenv("AWS_REGION", "af-south-1")
             cw = watchtower.CloudWatchLogHandler(
@@ -67,6 +72,128 @@ def setup_logging() -> logging.Logger:
 
 
 logger = setup_logging()
+
+
+def get_latest_log_stream(log_group: str, region: str) -> Optional[str]:
+    try:
+        logs_client = boto3.client("logs", region_name=region)
+        response = logs_client.describe_log_streams(
+            logGroupName=log_group,
+            orderBy="LastEventTime",
+            descending=True,
+            limit=1
+        )
+        if response.get("logStreams"):
+            return response["logStreams"][0]["logStreamName"]
+    except Exception as e:
+        logger.warning(f"Failed to fetch log stream: {e}")
+    return None
+
+
+def send_slack_summary(summary_data: Dict[str, Any], results: List[Dict[str, Any]] = None):
+    bot_token = os.getenv("SLACK_BOT_TOKEN")
+    channel_id = os.getenv("SLACK_CHANNEL_ID")
+    
+    if not bot_token or not channel_id:
+        logger.warning("SLACK_BOT_TOKEN or SLACK_CHANNEL_ID not set. Skipping notification.")
+        return
+
+    if results is None:
+        results = []
+
+    duration = summary_data.get("duration", 0)
+    minutes, seconds = divmod(int(duration), 60)
+    duration_str = f"{minutes}m {seconds}s"
+
+    timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    status = summary_data.get("status", "UNKNOWN")
+    failures = summary_data.get("failures", 0)
+    successes = summary_data.get("successes", 0)
+
+    failed_results = [r for r in results if r["status"] != "SUCCESS"]
+    success_results = [r for r in results if r["status"] == "SUCCESS"]
+
+    failures_section = ""
+    if failed_results:
+        failures_section = "*🚨 Failures (" + str(len(failed_results)) + ")*\n"
+        for result in failed_results:
+            table = result["table"]
+            error = result.get("error", "Unknown error")
+            pg_count = result.get("pg_count", "?")
+            sf_count = result.get("sf_count", "?")
+            
+            if pg_count != "?" and sf_count != "?":
+                failures_section += f"`{table}` - {error} (PG: {pg_count:,} → SNOW: {sf_count:,})\n"
+            else:
+                failures_section += f"`{table}` - {error}\n"
+
+    successes_section = ""
+    if success_results:
+        success_names = " ".join([f"`{r['table']}`" for r in success_results])
+        successes_section = f"*✅ Successes ({len(success_results)})*\n{success_names}\n"
+
+    status_text = "Sync Failed" if failures > 0 else "Sync Completed"
+    title = f"Solara ETL: {status_text}"
+
+    message_text = f"{title} | {timestamp} | {duration_str}\n\n"
+    if failures_section:
+        message_text += failures_section + "\n"
+    if successes_section:
+        message_text += successes_section
+
+    log_group = os.getenv("CLOUDWATCH_LOG_GROUP", "/aws/ssm/solara-etl")
+    region = os.getenv("AWS_REGION", "af-south-1")
+    
+    log_stream = get_latest_log_stream(log_group, region)
+    if not log_stream:
+        log_stream = os.getenv("CLOUDWATCH_LOG_STREAM", "production-run")
+    
+    cloudwatch_url = f"https://console.aws.amazon.com/cloudwatch/home?region={region}#logsV2:log-groups/log-group/{log_group}/log-events/{log_stream}"
+
+    payload = {
+        "channel": channel_id,
+        "text": message_text,
+        "blocks": [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": message_text
+                }
+            },
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"📋 <{cloudwatch_url}|View CloudWatch Logs>"
+                    }
+                ]
+            }
+        ]
+    }
+
+    try:
+        data = json.dumps(payload).encode("utf-8")
+        headers = {
+            "Authorization": f"Bearer {bot_token}",
+            "Content-Type": "application/json"
+        }
+        req = request.Request(
+            "https://slack.com/api/chat.postMessage",
+            data=data,
+            headers=headers,
+            method="POST"
+        )
+        with request.urlopen(req) as response:
+            result = json.loads(response.read().decode())
+            if result.get("ok"):
+                logger.info("Successfully sent Slack notification.")
+            else:
+                logger.warning(f"Failed to send Slack notification: {result.get('error')}")
+    except Exception as e:
+        logger.error("Error sending Slack notification", exc_info=True)
 
 
 def quote_identifier(identifier: str, uppercase: bool = False) -> str:
@@ -265,7 +392,7 @@ def format_row_for_insert(cols: List[Tuple[str, str]], row: Tuple) -> List:
     return formatted
 
 
-def validate_counts(pg_cur, sf_cur, pg_schema: str, pg_table: str, target_schema: str, sf_table: str = None) -> bool:
+def validate_counts(pg_cur, sf_cur, pg_schema: str, pg_table: str, target_schema: str, sf_table: str = None) -> Tuple[bool, int, int]:
     if sf_table is None:
         sf_table = pg_table
     
@@ -277,10 +404,10 @@ def validate_counts(pg_cur, sf_cur, pg_schema: str, pg_table: str, target_schema
 
     if pg_count == sf_count:
         logger.info(f"[OK] COUNT MATCH: {pg_table} (PG: {pg_count} == SNOW: {sf_count})")
-        return True
+        return True, pg_count, sf_count
     else:
         logger.error(f"[MISMATCH] COUNT ERROR: {pg_table} (PG: {pg_count} != SNOW: {sf_count})")
-        return False
+        return False, pg_count, sf_count
 
 
 def validate_json_variant(sf_cur, target_schema: str, table: str, pg_cols: List[Tuple[str, str]]) -> bool:
@@ -424,6 +551,8 @@ def load_table(pg_conn, sf_conn, table_name: str, pg_schema: str = "public", tar
         "status": "FAILED",
         "rows_loaded": 0,
         "rows_validated": 0,
+        "pg_count": 0,
+        "sf_count": 0,
         "error": None
     }
 
@@ -441,7 +570,9 @@ def load_table(pg_conn, sf_conn, table_name: str, pg_schema: str = "public", tar
         rows_loaded = pg_cur.fetchone()[0]
         result["rows_loaded"] = rows_loaded
 
-        counts_ok = validate_counts(pg_cur, sf_cur, pg_schema, table_name, target_schema, staging_table)
+        counts_ok, pg_count, sf_count = validate_counts(pg_cur, sf_cur, pg_schema, table_name, target_schema, staging_table)
+        result["pg_count"] = pg_count
+        result["sf_count"] = sf_count
         types_ok = validate_json_variant(sf_cur, target_schema, staging_table, cols)
 
         if counts_ok and types_ok:
@@ -480,18 +611,31 @@ def load_table(pg_conn, sf_conn, table_name: str, pg_schema: str = "public", tar
 
 
 def run(num_workers: int = 1, batch_size: int = 5000):
-    logger.info("--- STARTING ETL PIPELINE (Postgres -> Snowflake) ---")
-    log_endpoints()
-    test_connections()
+    start_time = time.time()
+    summary_data = {
+        "status": "FAILURE",
+        "tables_processed": 0,
+        "successes": 0,
+        "failures": 0,
+        "total_rows": 0,
+        "failed_tables": [],
+    }
 
-    pg_conn = get_postgres_conn()
-    sf_conn = get_snowflake_conn()
+    pg_conn = None
+    sf_conn = None
 
     try:
+        logger.info("--- STARTING ETL PIPELINE (Postgres -> Snowflake) ---")
+        log_endpoints()
+        test_connections()
+
+        pg_conn = get_postgres_conn()
+        sf_conn = get_snowflake_conn()
+
         setup_metadata_table(sf_conn.cursor(), TARGET_SCHEMA)
         sf_conn.commit()
 
-        excluded_tables = {"auditlog_logentry"}
+        excluded_tables = {"auditlog_logentry", "p42_vehicleauditlog"}
         
         with pg_conn.cursor() as c:
             c.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name")
@@ -501,18 +645,8 @@ def run(num_workers: int = 1, batch_size: int = 5000):
         
         results = []
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            futures = {}
-            for table in tables:
-                future = executor.submit(
-                    load_table,
-                    get_postgres_conn(),
-                    get_snowflake_conn(),
-                    table,
-                    pg_schema="public",
-                    target_schema=TARGET_SCHEMA,
-                    batch_size=batch_size
-                )
-                futures[future] = table
+            # Must create new connections for each thread
+            futures = {executor.submit(load_table, get_postgres_conn(), get_snowflake_conn(), table, "public", TARGET_SCHEMA, batch_size): table for table in tables}
 
             for future in as_completed(futures):
                 table = futures[future]
@@ -521,39 +655,49 @@ def run(num_workers: int = 1, batch_size: int = 5000):
                     results.append(result)
                 except Exception as e:
                     logger.error(f"Worker failed for table {table}: {e}", exc_info=True)
-                    results.append({
-                        "table": table,
-                        "status": "WORKER_ERROR",
-                        "rows_loaded": 0,
-                        "rows_validated": 0,
-                        "error": str(e)
-                    })
+                    results.append({"table": table, "status": "WORKER_ERROR", "rows_loaded": 0, "rows_validated": 0, "error": str(e)})
 
-        successes = sum(1 for r in results if r["status"] == "SUCCESS")
-        failures = sum(1 for r in results if r["status"] != "SUCCESS")
-        total_rows = sum(r["rows_loaded"] for r in results)
-        validated_rows = sum(r["rows_validated"] for r in results)
+        summary_data["tables_processed"] = len(tables)
+        summary_data["successes"] = sum(1 for r in results if r["status"] == "SUCCESS")
+        summary_data["failures"] = sum(1 for r in results if r["status"] != "SUCCESS")
+        summary_data["total_rows"] = sum(r["rows_loaded"] for r in results)
+        summary_data["failed_tables"] = [(r["table"], r.get("error", "Unknown")) for r in results if r["status"] != "SUCCESS"]
 
-        logger.info(f"ETL complete. Tables processed: {len(tables)} | SUCCESS: {successes} | FAILED: {failures}")
-        logger.info(f"Total rows loaded: {total_rows} | Total rows validated: {validated_rows}")
+        if summary_data["failures"] == 0 and summary_data["tables_processed"] > 0:
+            summary_data["status"] = "SUCCESS"
+
+        logger.info(f"ETL complete. Tables processed: {summary_data['tables_processed']} | SUCCESS: {summary_data['successes']} | FAILED: {summary_data['failures']}")
+        logger.info(f"Total rows loaded: {summary_data['total_rows']}")
         
-        for result in results:
-            if result["status"] != "SUCCESS":
-                logger.warning(f"  {result['table']}: {result['status']} - {result['error']}")
+        for table, error in summary_data["failed_tables"]:
+            logger.warning(f"  {table}: FAILED - {error}")
 
     except Exception as e:
         logger.critical(f"ETL pipeline failed: {e}", exc_info=True)
-        raise
+        summary_data["status"] = "CRITICAL_FAILURE"
+        summary_data["failed_tables"].append(("Pipeline Level", str(e)))
+
     finally:
-        try:
-            pg_conn.close()
-        except Exception:
-            pass
-        try:
-            sf_conn.close()
-        except Exception:
-            pass
+        if pg_conn:
+            try:
+                pg_conn.close()
+            except Exception: pass
+        if sf_conn:
+            try:
+                sf_conn.close()
+            except Exception: pass
+        
+        end_time = time.time()
+        summary_data["duration"] = end_time - start_time
+        send_slack_summary(summary_data, results if 'results' in locals() else [])
 
 
 if __name__ == "__main__":
-    run()
+    # Example: python main.py --workers 4 --batch_size 10000
+    import argparse
+    parser = argparse.ArgumentParser(description="Run the Solara ETL pipeline.")
+    parser.add_argument("--workers", type=int, default=4, help="Number of parallel workers for table loading.")
+    parser.add_argument("--batch_size", type=int, default=5000, help="Number of rows to fetch and insert in a single batch.")
+    args = parser.parse_args()
+
+    run(num_workers=args.workers, batch_size=args.batch_size)

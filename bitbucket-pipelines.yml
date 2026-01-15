@@ -41,11 +41,10 @@ definitions:
           - pip install awscli
           - export AWS_REGION=${AWS_REGION:-af-south-1}
           
-          - cd /tmp && curl -fsSL https://releases.hashicorp.com/terraform/1.6.0/terraform_1.6.0_linux_amd64.zip -o terraform.zip
-          - unzip terraform.zip && mv terraform /usr/local/bin/ && rm terraform.zip
+          - curl -fsSL https://releases.hashicorp.com/terraform/1.6.0/terraform_1.6.0_linux_amd64.zip -o /tmp/terraform.zip
+          - unzip /tmp/terraform.zip -d /usr/local/bin && rm /tmp/terraform.zip
           - terraform version
-          
-          - cd terraform
+          - cd $BITBUCKET_CLONE_DIR/terraform
           - |
             cat > backend_override.tf << EOF
             terraform {

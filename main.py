@@ -16,12 +16,10 @@ from dotenv import load_dotenv
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 import certifi
-from datetime import datetime
 
-# Set SSL certificate bundle for requests/boto3
 os.environ['REQUESTS_CA_BUNDLE'] = certifi.where()
 os.environ['AWS_CA_BUNDLE'] = certifi.where()
-os.environ['AWS_SSL_VERIFY'] = 'false'  # Disable SSL verification for S3 uploads
+os.environ['AWS_SSL_VERIFY'] = 'false'
 
 try:
     import watchtower
@@ -48,7 +46,7 @@ def setup_logging() -> logging.Logger:
     logger.addHandler(sh)
 
     os.makedirs("logs", exist_ok=True)
-    date_stamp = datetime.now().strftime("%Y%m%d")
+    date_stamp = datetime.datetime.now().strftime("%Y%m%d")
     file_path = f"logs/etl_solara_snow_{date_stamp}.log"
     fh = logging.FileHandler(file_path)
     fh.setFormatter(formatter)
@@ -111,11 +109,9 @@ def send_slack_summary(summary_data: Dict[str, Any], results: List[Dict[str, Any
     minutes, seconds = divmod(int(duration), 60)
     duration_str = f"{minutes}m {seconds}s"
 
-    timestamp = datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
-    status = summary_data.get("status", "UNKNOWN")
     failures = summary_data.get("failures", 0)
-    successes = summary_data.get("successes", 0)
 
     failed_results = [r for r in results if r["status"] != "SUCCESS"]
     success_results = [r for r in results if r["status"] == "SUCCESS"]
@@ -198,7 +194,7 @@ def send_slack_summary(summary_data: Dict[str, Any], results: List[Dict[str, Any
                 logger.info("Successfully sent Slack notification.")
             else:
                 logger.warning(f"Failed to send Slack notification: {result.get('error')}")
-    except Exception as e:
+    except Exception:
         logger.error("Error sending Slack notification", exc_info=True)
 
 
@@ -463,7 +459,7 @@ def load_into_staging(pg_cur, sf_cur, pg_schema: str, source_table: str, target_
     pg_cur.execute(f'SELECT * FROM {quote_identifier(pg_schema)}.{quote_identifier(source_table)}')
     
     total_rows = 0
-    loaded_at_utc = datetime.now(datetime.timezone.utc)
+    loaded_at_utc = datetime.datetime.now(datetime.timezone.utc)
     while True:
         rows = pg_cur.fetchmany(batch_size)
         if not rows:
@@ -500,7 +496,7 @@ def load_into_staging(pg_cur, sf_cur, pg_schema: str, source_table: str, target_
 def swap_staging_to_final(sf_cur, target_schema: str, table: str, staging_table: str, keep_backup: bool = False):
     final_full = f'{quote_identifier(target_schema, uppercase=True)}.{quote_identifier(table, uppercase=True)}'
     staging_full = f'{quote_identifier(target_schema, uppercase=True)}.{quote_identifier(staging_table, uppercase=True)}'
-    backup_name = f"{table}__BACKUP_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    backup_name = f"{table}__BACKUP_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
     backup_full = f'{quote_identifier(target_schema, uppercase=True)}.{quote_identifier(backup_name, uppercase=True)}'
 
     logger.info(f"Swapping staging into final for {table}")
@@ -534,10 +530,10 @@ def setup_metadata_table(sf_cur, target_schema: str) -> None:
 
 def record_load_metadata(sf_cur, target_schema: str, table_name: str, source_schema: str, 
                         load_type: str, rows_loaded: int, rows_validated: int, 
-                        load_start: datetime, status: str = "SUCCESS", error_msg: str = None):
+                        load_start: datetime.datetime, status: str = "SUCCESS", error_msg: str = None):
     metadata_table = f'{quote_identifier(target_schema, uppercase=True)}.{quote_identifier("ETL_METADATA", uppercase=True)}'
-    load_end = datetime.now(datetime.timezone.utc)
-    loaded_at_utc = datetime.now(datetime.timezone.utc)
+    load_end = datetime.datetime.now(datetime.timezone.utc)
+    loaded_at_utc = datetime.datetime.now(datetime.timezone.utc)
     sf_cur.execute(f'''
         INSERT INTO {metadata_table} 
         (TABLE_NAME, SOURCE_SCHEMA, LOAD_TYPE, ROWS_LOADED, ROWS_VALIDATED, LOAD_START, LOAD_END, LOADED_AT_UTC, STATUS, ERROR_MESSAGE)
@@ -549,7 +545,7 @@ def load_table(pg_conn, sf_conn, table_name: str, pg_schema: str = "public", tar
     if target_schema is None:
         target_schema = TARGET_SCHEMA
     
-    load_start = datetime.now(datetime.timezone.utc)
+    load_start = datetime.datetime.now(datetime.timezone.utc)
     logger.info(f"--- Processing table: {table_name} (incremental={incremental}) ---")
     
     result = {
@@ -651,7 +647,6 @@ def run(num_workers: int = 1, batch_size: int = 5000):
         
         results = []
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            # Must create new connections for each thread
             futures = {executor.submit(load_table, get_postgres_conn(), get_snowflake_conn(), table, "public", TARGET_SCHEMA, batch_size): table for table in tables}
 
             for future in as_completed(futures):
@@ -695,11 +690,10 @@ def run(num_workers: int = 1, batch_size: int = 5000):
         
         end_time = time.time()
         summary_data["duration"] = end_time - start_time
-        send_slack_summary(summary_data, results if 'results' in locals() else [])
+        #send_slack_summary(summary_data, results if 'results' in locals() else [])
 
 
 if __name__ == "__main__":
-    # Example: python main.py --workers 4 --batch_size 10000
     import argparse
     parser = argparse.ArgumentParser(description="Run the Solara ETL pipeline.")
     parser.add_argument("--workers", type=int, default=4, help="Number of parallel workers for table loading.")

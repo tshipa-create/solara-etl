@@ -108,6 +108,7 @@ resource "aws_iam_role_policy" "ecs_task_policy" {
       {
         Effect = "Allow"
         Action = [
+          "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents",
           "logs:DescribeLogStreams"
@@ -120,7 +121,11 @@ resource "aws_iam_role_policy" "ecs_task_policy" {
           "ssm:GetParameter",
           "ssm:GetParameters"
         ]
-        Resource = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/solara-etl/*"
+        Resource = [
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/solara-etl/*",
+          "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/snowflake/*",
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/odoo_etl/*"
+        ]
       }
     ]
   })

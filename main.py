@@ -690,7 +690,7 @@ def run(num_workers: int = 1, batch_size: int = 5000):
         
         end_time = time.time()
         summary_data["duration"] = end_time - start_time
-        #send_slack_summary(summary_data, results if 'results' in locals() else [])
+        send_slack_summary(summary_data, results if 'results' in locals() else [])
 
 
 if __name__ == "__main__":

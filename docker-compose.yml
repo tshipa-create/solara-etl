@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  solara-etl:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: solara-etl-pipeline
+    environment:
+      - AWS_REGION=af-south-1
+      - DB_PASSWORD=${DB_PASSWORD}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - DLT_DESTINATIONS__SNOWFLAKE__STAGING_LOCATION=s3://odoo-etl-bucket-eu/
+    volumes:
+      - ~/.aws:/root/.aws:ro
+      - ./logs:/app/logs
+    networks:
+      - solara-network
+
+networks:
+  solara-network:
+    driver: bridge

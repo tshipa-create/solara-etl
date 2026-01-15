@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for Solara ETL on EC2 with EventBridge'
+
+Parameters:
+  EC2InstanceId:
+    Type: AWS::EC2::Instance::Id
+    Description: EC2 instance ID where ETL script is deployed
+
+  EventBridgeRuleName:
+    Type: String
+    Default: solara-etl-schedule
+    Description: Name of the EventBridge rule
+
+  ScheduleExpression:
+    Type: String
+    Default: 'cron(0 */2 * * ? *)'
+    Description: 'Cron expression for EventBridge schedule (default: every 2 hours)'
+
+  # Not used in the Resources anymore, but must exist here to prevent ValidationError.
+  LogGroupNameParam:
+    Type: String
+    Default: /aws/ssm/solara-etl
+    Description: Placeholder for legacy log group param
+
+Resources:
+  SSMExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: InvokeSSMCommand
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'ssm:SendCommand'
+                Resource:
+                  - !Sub 'arn:aws:ssm:${AWS::Region}::document/AWS-RunShellScript'
+                  - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/${EC2InstanceId}'
+
+  EventBridgeRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Ref EventBridgeRuleName
+      Description: 'EventBridge rule to trigger Solara ETL pipeline via SSM on EC2'
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Targets:
+        - Id: SolaraEtlTarget
+          Arn: !Sub 'arn:aws:ssm:${AWS::Region}::document/AWS-RunShellScript'
+          RoleArn: !GetAtt SSMExecutionRole.Arn
+          
+          # Command to run Docker container (using runuser for safety)
+          Input: !Sub |
+            {
+              "commands": [
+                "runuser -l ec2-user -c 'cd /home/ec2-user/etl_project && docker run --rm -e AWS_REGION=${AWS::Region} -e DB_HOST=$(grep DB_HOST .env | cut -d= -f2) -e DB_PORT=$(grep DB_PORT .env | cut -d= -f2) -e DB_NAME=$(grep DB_NAME .env | cut -d= -f2) -e DB_USER=$(grep DB_USER .env | cut -d= -f2) -e DB_PASSWORD=$(grep DB_PASSWORD .env | cut -d= -f2) -e CLOUDWATCH_LOG_GROUP=$(grep CLOUDWATCH_LOG_GROUP .env | cut -d= -f2) -e CLOUDWATCH_LOG_STREAM=$(grep CLOUDWATCH_LOG_STREAM .env | cut -d= -f2) -v ~/.aws:/root/.aws:ro solara-etl:latest'"
+              ]
+            }
+
+          RetryPolicy:
+            MaximumEventAgeInSeconds: 3600
+            MaximumRetryAttempts: 2
+          
+          RunCommandParameters:
+            RunCommandTargets:
+              - Key: 'InstanceIds'
+                Values:
+                  - !Ref EC2InstanceId
+
+Outputs:
+  EventBridgeRuleArn:
+    Description: ARN of the EventBridge rule
+    Value: !GetAtt EventBridgeRule.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-EventBridgeRuleArn'

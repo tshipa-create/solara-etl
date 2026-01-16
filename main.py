@@ -10,6 +10,7 @@ import gc
 from typing import List, Tuple, Optional, Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib import request
+from urllib.parse import quote
 
 import psycopg2
 import snowflake.connector
@@ -158,7 +159,7 @@ def send_slack_summary(summary_data: Dict[str, Any], results: List[Dict[str, Any
     if not log_stream:
         log_stream = os.getenv("CLOUDWATCH_LOG_STREAM", "production-run")
     
-    cloudwatch_url = f"https://console.aws.amazon.com/cloudwatch/home?region={region}#logsV2:log-groups/log-group/{log_group}/log-events/{log_stream}"
+    cloudwatch_url = f"https://console.aws.amazon.com/cloudwatch/home?region={region}#logsV2:log-groups/log-group/{quote(log_group, safe='')}/log-events/{quote(log_stream, safe='')}"
 
     payload = {
         "channel": channel_id,

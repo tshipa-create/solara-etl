@@ -472,20 +472,21 @@ def load_into_staging(pg_cur, sf_cur, pg_schema: str, source_table: str, target_
             col_defs.append('%s')
     col_defs.append('%s')
     
-    sub_batch_size = max(100, batch_size // 10)
+    sub_batch_size = 50
     
     while True:
         rows = pg_cur.fetchmany(batch_size)
         if not rows:
             break
 
-        formatted_batch = [tuple(format_row_for_insert(cols, r)) for r in rows]
-        
-        for i in range(0, len(formatted_batch), sub_batch_size):
-            sub_batch = formatted_batch[i:i + sub_batch_size]
+        for batch_start in range(0, len(rows), sub_batch_size):
+            batch_end = min(batch_start + sub_batch_size, len(rows))
+            sub_batch = rows[batch_start:batch_end]
+            
             union_selects = []
             all_params = []
-            for formatted_row in sub_batch:
+            for row in sub_batch:
+                formatted_row = tuple(format_row_for_insert(cols, row))
                 union_selects.append(f"SELECT {', '.join(col_defs)}")
                 all_params.extend(formatted_row)
                 all_params.append(loaded_at_utc)
@@ -493,9 +494,9 @@ def load_into_staging(pg_cur, sf_cur, pg_schema: str, source_table: str, target_
             batch_insert_sql = f'INSERT INTO {quote_identifier(target_schema, uppercase=True)}.{quote_identifier(staging_table, uppercase=True)} ({col_list}) {" UNION ALL ".join(union_selects)}'
             
             retry_with_backoff(lambda sql=batch_insert_sql, params=all_params: sf_cur.execute(sql, params))
-        
-        total_rows += len(formatted_batch)
-        logger.info(f"Inserted {total_rows} rows into staging {staging_table}")
+            
+            total_rows += (batch_end - batch_start)
+            logger.info(f"Inserted {total_rows} rows into staging {staging_table}")
 
 
 def swap_staging_to_final(sf_cur, target_schema: str, table: str, staging_table: str, keep_backup: bool = False):

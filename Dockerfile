@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir --no-warn-script-location -r requirements.txt
 
 COPY . .
 COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+RUN dos2unix /app/entrypoint.sh || sed -i 's/\r$//' /app/entrypoint.sh; chmod +x /app/entrypoint.sh
 
 ENV AWS_REGION=af-south-1 PYTHONUNBUFFERED=1
 

@@ -460,6 +460,20 @@ def load_into_staging(pg_cur, sf_cur, pg_schema: str, source_table: str, target_
     
     total_rows = 0
     loaded_at_utc = datetime.datetime.now(datetime.timezone.utc)
+    col_list = ", ".join([quote_identifier(c[0], uppercase=True) for c in cols])
+    col_list += f", {quote_identifier('LOADED_AT_UTC', uppercase=True)}"
+    col_defs = []
+    for _, pg_type in cols:
+        if pg_type in JSON_TYPES:
+            col_defs.append('PARSE_JSON(%s)')
+        elif pg_type == "bytea":
+            col_defs.append('HEX_DECODE_BINARY(%s)')
+        else:
+            col_defs.append('%s')
+    col_defs.append('%s')
+    
+    sub_batch_size = max(100, batch_size // 10)
+    
     while True:
         rows = pg_cur.fetchmany(batch_size)
         if not rows:
@@ -467,28 +481,19 @@ def load_into_staging(pg_cur, sf_cur, pg_schema: str, source_table: str, target_
 
         formatted_batch = [tuple(format_row_for_insert(cols, r)) for r in rows]
         
-        col_list = ", ".join([quote_identifier(c[0], uppercase=True) for c in cols])
-        col_list += f", {quote_identifier('LOADED_AT_UTC', uppercase=True)}"
-        col_defs = []
-        for _, pg_type in cols:
-            if pg_type in JSON_TYPES:
-                col_defs.append('PARSE_JSON(%s)')
-            elif pg_type == "bytea":
-                col_defs.append('HEX_DECODE_BINARY(%s)')
-            else:
-                col_defs.append('%s')
-        col_defs.append('%s')
+        for i in range(0, len(formatted_batch), sub_batch_size):
+            sub_batch = formatted_batch[i:i + sub_batch_size]
+            union_selects = []
+            all_params = []
+            for formatted_row in sub_batch:
+                union_selects.append(f"SELECT {', '.join(col_defs)}")
+                all_params.extend(formatted_row)
+                all_params.append(loaded_at_utc)
+            
+            batch_insert_sql = f'INSERT INTO {quote_identifier(target_schema, uppercase=True)}.{quote_identifier(staging_table, uppercase=True)} ({col_list}) {" UNION ALL ".join(union_selects)}'
+            
+            retry_with_backoff(lambda sql=batch_insert_sql, params=all_params: sf_cur.execute(sql, params))
         
-        union_selects = []
-        all_params = []
-        for formatted_row in formatted_batch:
-            union_selects.append(f"SELECT {', '.join(col_defs)}")
-            all_params.extend(formatted_row)
-            all_params.append(loaded_at_utc)
-        
-        batch_insert_sql = f'INSERT INTO {quote_identifier(target_schema, uppercase=True)}.{quote_identifier(staging_table, uppercase=True)} ({col_list}) {" UNION ALL ".join(union_selects)}'
-        
-        retry_with_backoff(lambda sql=batch_insert_sql, params=all_params: sf_cur.execute(sql, params))
         total_rows += len(formatted_batch)
         logger.info(f"Inserted {total_rows} rows into staging {staging_table}")
 

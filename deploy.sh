@@ -11,7 +11,7 @@ sudo systemctl start docker
 
 echo "Building Docker image..."
 docker build -t solara-etl:latest .
-
+so you
 echo "Running ETL pipeline..."
 docker run --rm \
   -e DB_PASSWORD="${DB_PASSWORD}" \

@@ -4,6 +4,7 @@ certifi==2025.11.12
 cryptography==46.0.3
 pandas
 psycopg2-binary==2.9.11
+psutil==6.1.0
 python-dotenv==1.2.1
 snowflake-connector-python[pandas]==4.0.0
 watchtower==3.0.1

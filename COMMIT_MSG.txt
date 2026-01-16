@@ -1,0 +1,14 @@
+fix: calculate safe batch size based on column count, not guesses
+
+Added calculate_safe_batch_size() function that determines row batch size mathematically:
+- Snowflake parameter limit: 8000 (safe margin)
+- Rows per batch = 8000 / (num_cols + 1)
+- Cap at 100 rows max to prevent memory issues
+
+Examples:
+- p42_customer (75 cols) → 100 rows/batch (105 → capped)
+- p42_applications (34 cols) → 100 rows/batch (228 → capped)
+- Small tables (3 cols) → 100 rows/batch (2000 → capped)
+
+This ensures no table exceeds safe parameter limits while maximizing throughput.
+Logs batch size per table for transparency.

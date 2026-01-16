@@ -5,6 +5,8 @@ import datetime
 import logging
 import hashlib
 import time
+import psutil
+import gc
 from typing import List, Tuple, Optional, Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib import request
@@ -17,6 +19,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 import certifi
 
+# --- Configuration & Setup ---
 os.environ['REQUESTS_CA_BUNDLE'] = certifi.where()
 os.environ['AWS_CA_BUNDLE'] = certifi.where()
 os.environ['AWS_SSL_VERIFY'] = 'false'
@@ -74,9 +77,15 @@ def setup_logging() -> logging.Logger:
 
     return logger
 
-
 logger = setup_logging()
 
+# --- Helper Functions ---
+
+def get_memory_mb():
+    try:
+        return psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024
+    except:
+        return 0
 
 def get_latest_log_stream(log_group: str, region: str) -> Optional[str]:
     try:
@@ -92,7 +101,6 @@ def get_latest_log_stream(log_group: str, region: str) -> Optional[str]:
     except Exception as e:
         logger.warning(f"Failed to fetch log stream: {e}")
     return None
-
 
 def send_slack_summary(summary_data: Dict[str, Any], results: List[Dict[str, Any]] = None):
     bot_token = os.getenv("SLACK_BOT_TOKEN")
@@ -110,7 +118,6 @@ def send_slack_summary(summary_data: Dict[str, Any], results: List[Dict[str, Any
     duration_str = f"{minutes}m {seconds}s"
 
     timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-
     failures = summary_data.get("failures", 0)
 
     failed_results = [r for r in results if r["status"] != "SUCCESS"]
@@ -118,7 +125,7 @@ def send_slack_summary(summary_data: Dict[str, Any], results: List[Dict[str, Any
 
     failures_section = ""
     if failed_results:
-        failures_section = "*🚨 Failures (" + str(len(failed_results)) + ")*\n"
+        failures_section = "* Failures (" + str(len(failed_results)) + ")*\n"
         for result in failed_results:
             table = result["table"]
             error = result.get("error", "Unknown error")
@@ -126,14 +133,14 @@ def send_slack_summary(summary_data: Dict[str, Any], results: List[Dict[str, Any
             sf_count = result.get("sf_count", "?")
             
             if pg_count != "?" and sf_count != "?":
-                failures_section += f"`{table}` - {error} (PG: {pg_count:,} → SNOW: {sf_count:,})\n"
+                failures_section += f"`{table}` - {error} (PG: {pg_count} -> SNOW: {sf_count})\n"
             else:
                 failures_section += f"`{table}` - {error}\n"
 
     successes_section = ""
     if success_results:
         success_names = " ".join([f"`{r['table']}`" for r in success_results])
-        successes_section = f"*✅ Successes ({len(success_results)})*\n{success_names}\n"
+        successes_section = f"* Successes ({len(success_results)})*\n{success_names}\n"
 
     status_text = "Sync Failed" if failures > 0 else "Sync Completed"
     title = f"Solara ETL: {status_text}"
@@ -169,7 +176,7 @@ def send_slack_summary(summary_data: Dict[str, Any], results: List[Dict[str, Any
                 "elements": [
                     {
                         "type": "mrkdwn",
-                        "text": f"📋 <{cloudwatch_url}|View CloudWatch Logs>"
+                        "text": f"View CloudWatch Logs: <{cloudwatch_url}|Link>"
                     }
                 ]
             }
@@ -197,12 +204,10 @@ def send_slack_summary(summary_data: Dict[str, Any], results: List[Dict[str, Any
     except Exception:
         logger.error("Error sending Slack notification", exc_info=True)
 
-
 def quote_identifier(identifier: str, uppercase: bool = False) -> str:
     if uppercase:
         return f'"{identifier.upper()}"'
     return f'"{identifier}"'
-
 
 def retry_with_backoff(func, max_retries: int = 3, base_delay: float = 1.0):
     for attempt in range(max_retries):
@@ -215,16 +220,15 @@ def retry_with_backoff(func, max_retries: int = 3, base_delay: float = 1.0):
             logger.warning(f"Attempt {attempt + 1} failed, retrying in {delay}s: {e}")
             time.sleep(delay)
 
-
 def calculate_row_hash(row: Tuple) -> str:
     row_str = json.dumps(row, default=str, sort_keys=True)
     return hashlib.md5(row_str.encode()).hexdigest()
-
 
 def log_endpoints():
     logger.info(f"Postgres: host={os.getenv('DB_HOST')} port={os.getenv('DB_PORT', '5432')} db={os.getenv('DB_NAME')} user={os.getenv('DB_USER')}")
     logger.info("Snowflake: using SSM (us-east-1 for key, af-south-1 for account/user/db/wh)")
 
+# --- Database Connection Factories ---
 
 def get_postgres_conn():
     missing = [k for k in ["DB_HOST", "DB_NAME", "DB_USER", "DB_PASSWORD"] if not os.getenv(k)]
@@ -242,7 +246,6 @@ def get_postgres_conn():
         connect_timeout=10,
     )
     return conn
-
 
 def get_snowflake_config_from_ssm():
     try:
@@ -283,7 +286,6 @@ def get_snowflake_conn():
         role=cfg["role"],
     )
 
-
 def test_connections():
     logger.info("Testing connections...")
     try:
@@ -304,6 +306,7 @@ def test_connections():
         logger.critical("[FAIL] Snowflake connection test failed", exc_info=True)
         raise
 
+# --- Transformation & SQL Building ---
 
 PG_TO_SNOWFLAKE = {
     "integer": "INTEGER",
@@ -332,7 +335,6 @@ JSON_TYPES = {"json", "jsonb"}
 def map_pg_type(pg_type: str) -> str:
     return PG_TO_SNOWFLAKE.get(pg_type, "TEXT")
 
-
 def fetch_columns(pg_cur, schema: str, table: str) -> List[Tuple[str, str]]:
     pg_cur.execute(
         """
@@ -345,24 +347,10 @@ def fetch_columns(pg_cur, schema: str, table: str) -> List[Tuple[str, str]]:
     )
     return pg_cur.fetchall()
 
-
 def build_create_table_sql(target_schema: str, table: str, cols: List[Tuple[str, str]]) -> str:
     col_defs = [f'{quote_identifier(col, uppercase=True)} {map_pg_type(pg_type)}' for col, pg_type in cols]
     col_defs.append(f'{quote_identifier("LOADED_AT_UTC", uppercase=True)} TIMESTAMP_TZ')
     return f'CREATE OR REPLACE TABLE {quote_identifier(target_schema, uppercase=True)}.{quote_identifier(table, uppercase=True)} ({", ".join(col_defs)})'
-
-
-def build_insert_sql(target_schema: str, table: str, cols: List[Tuple[str, str]]) -> str:
-    col_list = ", ".join([quote_identifier(c[0], uppercase=True) for c in cols])
-    select_list = []
-    for _, pg_type in cols:
-        if pg_type in JSON_TYPES:
-            select_list.append('PARSE_JSON(%s)')
-        else:
-            select_list.append('%s')
-    select_clause = ", ".join(select_list)
-    return f'INSERT INTO {quote_identifier(target_schema, uppercase=True)}.{quote_identifier(table, uppercase=True)} ({col_list}) SELECT {select_clause}'
-
 
 def format_row_for_insert(cols: List[Tuple[str, str]], row: Tuple) -> List:
     formatted = []
@@ -393,7 +381,6 @@ def format_row_for_insert(cols: List[Tuple[str, str]], row: Tuple) -> List:
             formatted.append(value)
     return formatted
 
-
 def validate_counts(pg_cur, sf_cur, pg_schema: str, pg_table: str, target_schema: str, sf_table: str = None) -> Tuple[bool, int, int]:
     if sf_table is None:
         sf_table = pg_table
@@ -410,7 +397,6 @@ def validate_counts(pg_cur, sf_cur, pg_schema: str, pg_table: str, target_schema
     else:
         logger.error(f"[MISMATCH] COUNT ERROR: {pg_table} (PG: {pg_count} != SNOW: {sf_count})")
         return False, pg_count, sf_count
-
 
 def validate_json_variant(sf_cur, target_schema: str, table: str, pg_cols: List[Tuple[str, str]]) -> bool:
     pg_json_cols = [col for col, pg_type in pg_cols if pg_type in JSON_TYPES]
@@ -440,7 +426,6 @@ def validate_json_variant(sf_cur, target_schema: str, table: str, pg_cols: List[
             ok = False
     return ok
 
-
 def recreate_final_and_staging(sf_cur, target_schema: str, table: str, cols: List[Tuple[str, str]]) -> str:
     final_sql = build_create_table_sql(target_schema, table, cols)
     logger.info(f"Ensuring final table exists: {final_sql}")
@@ -454,50 +439,42 @@ def recreate_final_and_staging(sf_cur, target_schema: str, table: str, cols: Lis
 
     return staging_table
 
-
 def load_into_staging(pg_cur, sf_cur, pg_schema: str, source_table: str, target_schema: str, staging_table: str, cols: List[Tuple[str, str]], batch_size: int):
     pg_cur.execute(f'SELECT * FROM {quote_identifier(pg_schema)}.{quote_identifier(source_table)}')
     
     total_rows = 0
     loaded_at_utc = datetime.datetime.now(datetime.timezone.utc)
-    col_list = ", ".join([quote_identifier(c[0], uppercase=True) for c in cols])
-    col_list += f", {quote_identifier('LOADED_AT_UTC', uppercase=True)}"
-    col_defs = []
-    for _, pg_type in cols:
-        if pg_type in JSON_TYPES:
-            col_defs.append('PARSE_JSON(%s)')
-        elif pg_type == "bytea":
-            col_defs.append('HEX_DECODE_BINARY(%s)')
-        else:
-            col_defs.append('%s')
-    col_defs.append('%s')
-    
-    sub_batch_size = 50
-    
     while True:
         rows = pg_cur.fetchmany(batch_size)
         if not rows:
             break
 
-        for batch_start in range(0, len(rows), sub_batch_size):
-            batch_end = min(batch_start + sub_batch_size, len(rows))
-            sub_batch = rows[batch_start:batch_end]
-            
-            union_selects = []
-            all_params = []
-            for row in sub_batch:
-                formatted_row = tuple(format_row_for_insert(cols, row))
-                union_selects.append(f"SELECT {', '.join(col_defs)}")
-                all_params.extend(formatted_row)
-                all_params.append(loaded_at_utc)
-            
-            batch_insert_sql = f'INSERT INTO {quote_identifier(target_schema, uppercase=True)}.{quote_identifier(staging_table, uppercase=True)} ({col_list}) {" UNION ALL ".join(union_selects)}'
-            
-            retry_with_backoff(lambda sql=batch_insert_sql, params=all_params: sf_cur.execute(sql, params))
-            
-            total_rows += (batch_end - batch_start)
-            logger.info(f"Inserted {total_rows} rows into staging {staging_table}")
-
+        formatted_batch = [tuple(format_row_for_insert(cols, r)) for r in rows]
+        
+        col_list = ", ".join([quote_identifier(c[0], uppercase=True) for c in cols])
+        col_list += f", {quote_identifier('LOADED_AT_UTC', uppercase=True)}"
+        col_defs = []
+        for _, pg_type in cols:
+            if pg_type in JSON_TYPES:
+                col_defs.append('PARSE_JSON(%s)')
+            elif pg_type == "bytea":
+                col_defs.append('HEX_DECODE_BINARY(%s)')
+            else:
+                col_defs.append('%s')
+        col_defs.append('%s')
+        
+        union_selects = []
+        all_params = []
+        for formatted_row in formatted_batch:
+            union_selects.append(f"SELECT {', '.join(col_defs)}")
+            all_params.extend(formatted_row)
+            all_params.append(loaded_at_utc)
+        
+        batch_insert_sql = f'INSERT INTO {quote_identifier(target_schema, uppercase=True)}.{quote_identifier(staging_table, uppercase=True)} ({col_list}) {" UNION ALL ".join(union_selects)}'
+        
+        retry_with_backoff(lambda sql=batch_insert_sql, params=all_params: sf_cur.execute(sql, params))
+        total_rows += len(formatted_batch)
+        logger.info(f"Inserted {total_rows} rows into staging {staging_table}")
 
 def swap_staging_to_final(sf_cur, target_schema: str, table: str, staging_table: str, keep_backup: bool = False):
     final_full = f'{quote_identifier(target_schema, uppercase=True)}.{quote_identifier(table, uppercase=True)}'
@@ -510,7 +487,6 @@ def swap_staging_to_final(sf_cur, target_schema: str, table: str, staging_table:
     sf_cur.execute(f'ALTER TABLE {staging_full} RENAME TO {final_full}')
     if not keep_backup:
         sf_cur.execute(f'DROP TABLE IF EXISTS {backup_full}')
-
 
 def setup_metadata_table(sf_cur, target_schema: str) -> None:
     metadata_table = f'{quote_identifier(target_schema, uppercase=True)}.{quote_identifier("ETL_METADATA", uppercase=True)}'
@@ -533,7 +509,6 @@ def setup_metadata_table(sf_cur, target_schema: str) -> None:
     ''')
     logger.info(f"Metadata table ready: {metadata_table}")
 
-
 def record_load_metadata(sf_cur, target_schema: str, table_name: str, source_schema: str, 
                         load_type: str, rows_loaded: int, rows_validated: int, 
                         load_start: datetime.datetime, status: str = "SUCCESS", error_msg: str = None):
@@ -546,13 +521,12 @@ def record_load_metadata(sf_cur, target_schema: str, table_name: str, source_sch
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ''', (table_name, source_schema, load_type, rows_loaded, rows_validated, load_start, load_end, loaded_at_utc, status, error_msg))
 
-
-def load_table(pg_conn, sf_conn, table_name: str, pg_schema: str = "public", target_schema: str = None, batch_size: int = 5000, incremental: bool = False) -> Dict[str, Any]:
+def load_table(pg_conn, sf_conn, table_name: str, pg_schema: str = "public", target_schema: str = None, batch_size: int = 5000) -> Dict[str, Any]:
     if target_schema is None:
         target_schema = TARGET_SCHEMA
     
     load_start = datetime.datetime.now(datetime.timezone.utc)
-    logger.info(f"--- Processing table: {table_name} (incremental={incremental}) ---")
+    logger.info(f"--- Processing table: {table_name} (incremental=False) ---")
     
     result = {
         "table": table_name,
@@ -617,8 +591,40 @@ def load_table(pg_conn, sf_conn, table_name: str, pg_schema: str = "public", tar
     
     return result
 
+def load_table_wrapper(table_name: str, batch_size: int):
+    """
+    Wrapper to initialize connections INSIDE the thread, 
+    process the table, and close connections immediately.
+    """
+    # 1. Create connections only when the worker starts this specific task
+    try:
+        pg_conn = get_postgres_conn()
+        sf_conn = get_snowflake_conn()
+    except Exception as e:
+        logger.error(f"Failed to create connections for {table_name}: {e}")
+        return {"table": table_name, "status": "CONNECTION_ERROR", "error": str(e)}
 
-def run(num_workers: int = 1, batch_size: int = 5000):
+    try:
+        # 2. Run the actual load
+        result = load_table(pg_conn, sf_conn, table_name, "public", TARGET_SCHEMA, batch_size)
+        return result
+    except Exception as e:
+        logger.error(f"Error in worker for {table_name}: {e}")
+        return {"table": table_name, "status": "WORKER_ERROR", "error": str(e)}
+    finally:
+        # 3. Aggressively close connections and free memory
+        try:
+            pg_conn.close()
+        except: pass
+        
+        try:
+            sf_conn.close()
+        except: pass
+        
+        # 4. Force Garbage Collection to clear buffers from the previous thread
+        gc.collect()
+
+def run(num_workers: int = 1, batch_size: int = 2000): # Default batch size lowered for safety
     start_time = time.time()
     summary_data = {
         "status": "FAILURE",
@@ -629,81 +635,66 @@ def run(num_workers: int = 1, batch_size: int = 5000):
         "failed_tables": [],
     }
 
-    pg_conn = None
-    sf_conn = None
-
     try:
         logger.info("--- STARTING ETL PIPELINE (Postgres -> Snowflake) ---")
+        logger.info(f"[MEMORY] Start: {get_memory_mb():.1f} MB")
         log_endpoints()
-        test_connections()
-
-        pg_conn = get_postgres_conn()
-        sf_conn = get_snowflake_conn()
-
-        setup_metadata_table(sf_conn.cursor(), TARGET_SCHEMA)
-        sf_conn.commit()
-
-        excluded_tables = {"auditlog_logentry", "p42_vehicleauditlog"}
         
-        with pg_conn.cursor() as c:
-            c.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name")
-            tables = [r[0] for r in c.fetchall() if r[0] not in excluded_tables]
+        # Test connectivity once globally, but don't keep these open
+        test_connections() 
+
+        # Get list of tables using a temporary connection
+        excluded_tables = {"auditlog_logentry", "p42_vehicleauditlog"}
+        tables = []
+        with get_postgres_conn() as conn:
+            with conn.cursor() as c:
+                c.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name")
+                tables = [r[0] for r in c.fetchall() if r[0] not in excluded_tables]
 
         logger.info(f"Found {len(tables)} tables to process. Starting parallel load with {num_workers} workers")
         
         results = []
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            futures = {executor.submit(load_table, get_postgres_conn(), get_snowflake_conn(), table, "public", TARGET_SCHEMA, batch_size): table for table in tables}
-
+            # Lazy connection initialization: pass only config, not open connections
+            futures = {executor.submit(load_table_wrapper, table, batch_size): table for table in tables}
+            
             for future in as_completed(futures):
                 table = futures[future]
                 try:
                     result = future.result()
                     results.append(result)
+                    logger.info(f"[MEMORY] After {table}: {get_memory_mb():.1f} MB")
                 except Exception as e:
                     logger.error(f"Worker failed for table {table}: {e}", exc_info=True)
-                    results.append({"table": table, "status": "WORKER_ERROR", "rows_loaded": 0, "rows_validated": 0, "error": str(e)})
+                    results.append({"table": table, "status": "CRASHED", "error": str(e)})
 
+        # Summarize results
         summary_data["tables_processed"] = len(tables)
         summary_data["successes"] = sum(1 for r in results if r["status"] == "SUCCESS")
         summary_data["failures"] = sum(1 for r in results if r["status"] != "SUCCESS")
-        summary_data["total_rows"] = sum(r["rows_loaded"] for r in results)
+        summary_data["total_rows"] = sum(r.get("rows_loaded", 0) for r in results)
         summary_data["failed_tables"] = [(r["table"], r.get("error", "Unknown")) for r in results if r["status"] != "SUCCESS"]
 
         if summary_data["failures"] == 0 and summary_data["tables_processed"] > 0:
             summary_data["status"] = "SUCCESS"
 
-        logger.info(f"ETL complete. Tables processed: {summary_data['tables_processed']} | SUCCESS: {summary_data['successes']} | FAILED: {summary_data['failures']}")
-        logger.info(f"Total rows loaded: {summary_data['total_rows']}")
+        logger.info(f"ETL complete. Tables: {summary_data['tables_processed']} | OK: {summary_data['successes']} | FAIL: {summary_data['failures']}")
         
-        for table, error in summary_data["failed_tables"]:
-            logger.warning(f"  {table}: FAILED - {error}")
-
     except Exception as e:
         logger.critical(f"ETL pipeline failed: {e}", exc_info=True)
         summary_data["status"] = "CRITICAL_FAILURE"
         summary_data["failed_tables"].append(("Pipeline Level", str(e)))
 
     finally:
-        if pg_conn:
-            try:
-                pg_conn.close()
-            except Exception: pass
-        if sf_conn:
-            try:
-                sf_conn.close()
-            except Exception: pass
-        
         end_time = time.time()
         summary_data["duration"] = end_time - start_time
         send_slack_summary(summary_data, results if 'results' in locals() else [])
 
-
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Run the Solara ETL pipeline.")
-    parser.add_argument("--workers", type=int, default=4, help="Number of parallel workers for table loading.")
-    parser.add_argument("--batch_size", type=int, default=5000, help="Number of rows to fetch and insert in a single batch.")
+    parser.add_argument("--workers", type=int, default=1, help="Number of parallel workers for table loading.")
+    parser.add_argument("--batch_size", type=int, default=2000, help="Number of rows to fetch and insert in a single batch.")
     args = parser.parse_args()
 
     run(num_workers=args.workers, batch_size=args.batch_size)

@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 
-# Create .env from environment variables (like bitbucket-pipelines.yml)
 cat > .env << EOF
 DB_HOST=${DB_HOST:-solara.crqioqgga31u.af-south-1.rds.amazonaws.com}
 DB_PORT=${DB_PORT:-5432}

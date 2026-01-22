@@ -382,22 +382,16 @@ def format_row_for_insert(cols: List[Tuple[str, str]], row: Tuple) -> List:
             formatted.append(value)
     return formatted
 
-def validate_counts(pg_cur, sf_cur, pg_schema: str, pg_table: str, target_schema: str, sf_table: str = None) -> Tuple[bool, int, int]:
-    if sf_table is None:
-        sf_table = pg_table
-    
-    pg_cur.execute(f'SELECT COUNT(*) FROM {quote_identifier(pg_schema)}.{quote_identifier(pg_table)}')
-    pg_count = pg_cur.fetchone()[0]
-
+def validate_counts(expected_count, sf_cur, target_schema: str, sf_table: str) -> Tuple[bool, int, int]:
     sf_cur.execute(f'SELECT COUNT(*) FROM {quote_identifier(target_schema, uppercase=True)}.{quote_identifier(sf_table, uppercase=True)}')
     sf_count = sf_cur.fetchone()[0]
 
-    if pg_count == sf_count:
-        logger.info(f"[OK] COUNT MATCH: {pg_table} (PG: {pg_count} == SNOW: {sf_count})")
-        return True, pg_count, sf_count
+    if expected_count == sf_count:
+        logger.info(f"[OK] COUNT MATCH: {sf_table} (EXPECTED: {expected_count} == SNOW: {sf_count})")
+        return True, expected_count, sf_count
     else:
-        logger.error(f"[MISMATCH] COUNT ERROR: {pg_table} (PG: {pg_count} != SNOW: {sf_count})")
-        return False, pg_count, sf_count
+        logger.error(f"[MISMATCH] COUNT ERROR: {sf_table} (EXPECTED: {expected_count} != SNOW: {sf_count})")
+        return False, expected_count, sf_count
 
 def validate_json_variant(sf_cur, target_schema: str, table: str, pg_cols: List[Tuple[str, str]]) -> bool:
     pg_json_cols = [col for col, pg_type in pg_cols if pg_type in JSON_TYPES]
@@ -428,13 +422,8 @@ def validate_json_variant(sf_cur, target_schema: str, table: str, pg_cols: List[
     return ok
 
 def recreate_final_and_staging(sf_cur, target_schema: str, table: str, cols: List[Tuple[str, str]]) -> str:
-    final_sql = build_create_table_sql(target_schema, table, cols)
-    logger.info(f"Ensuring final table exists: {final_sql}")
-    retry_with_backoff(lambda: sf_cur.execute(final_sql))
-
     staging_table = f"{table}__STAGING"
-    sf_cur.execute(f'DROP TABLE IF EXISTS {quote_identifier(target_schema, uppercase=True)}.{quote_identifier(staging_table, uppercase=True)}')
-    staging_sql = final_sql.replace(quote_identifier(table, uppercase=True), quote_identifier(staging_table, uppercase=True))
+    staging_sql = build_create_table_sql(target_schema, staging_table, cols)
     logger.info(f"Creating staging table: {staging_sql}")
     sf_cur.execute(staging_sql)
 
@@ -476,6 +465,7 @@ def load_into_staging(pg_cur, sf_cur, pg_schema: str, source_table: str, target_
         retry_with_backoff(lambda sql=batch_insert_sql, params=all_params: sf_cur.execute(sql, params))
         total_rows += len(formatted_batch)
         logger.info(f"Inserted {total_rows} rows into staging {staging_table}")
+    return total_rows
 
 def swap_staging_to_final(sf_cur, target_schema: str, table: str, staging_table: str, keep_backup: bool = False):
     final_full = f'{quote_identifier(target_schema, uppercase=True)}.{quote_identifier(table, uppercase=True)}'
@@ -546,14 +536,11 @@ def load_table(pg_conn, sf_conn, table_name: str, pg_schema: str = "public", tar
         cols = fetch_columns(pg_cur, pg_schema, table_name)
         staging_table = recreate_final_and_staging(sf_cur, target_schema, table_name, cols)
 
-        load_into_staging(pg_cur, sf_cur, pg_schema, table_name, target_schema, staging_table, cols, batch_size)
+        rows_loaded = load_into_staging(pg_cur, sf_cur, pg_schema, table_name, target_schema, staging_table, cols, batch_size)
         sf_conn.commit()
-
-        pg_cur.execute(f'SELECT COUNT(*) FROM {quote_identifier(pg_schema)}.{quote_identifier(table_name)}')
-        rows_loaded = pg_cur.fetchone()[0]
         result["rows_loaded"] = rows_loaded
 
-        counts_ok, pg_count, sf_count = validate_counts(pg_cur, sf_cur, pg_schema, table_name, target_schema, staging_table)
+        counts_ok, pg_count, sf_count = validate_counts(rows_loaded, sf_cur, target_schema, staging_table)
         result["pg_count"] = pg_count
         result["sf_count"] = sf_count
         types_ok = validate_json_variant(sf_cur, target_schema, staging_table, cols)
